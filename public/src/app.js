@@ -274,7 +274,7 @@ if (!window.d3) {
 
             const centerX = newWidth * 0.5;
             const centerY = newHeight * 0.5;
-            const spread = Math.min(newWidth, newHeight) * 0.24;
+            const spread = getRootSpread(activeRoots.length);
 
             activeRoots.forEach((root, idx) => {
                 const angle = (-Math.PI / 2) + ((Math.PI * 2 * idx) / activeRoots.length);
@@ -322,9 +322,28 @@ if (!window.d3) {
             { x: width * 0.68, y: height * 0.5 }
         ];
 
-        const ringRadius = 160;
-        const baseSize = 52;
-        const halfSize = 28;
+        let visibleBounds = null;
+
+        function getLayoutMetrics() {
+            const panelWidth = treePanel.clientWidth || width || 1000;
+            const isMobile = panelWidth <= 800;
+
+            return {
+                baseSize: isMobile ? 42 : 52,
+                halfSize: isMobile ? 24 : 28,
+                ringSpacing: isMobile ? 150 : 205,
+                siblingGap: isMobile ? 0.03 : 0.045,
+                maxScale: isMobile ? 1.15 : 1.5
+            };
+        }
+
+        function getRootSpread(rootCount) {
+            const panelWidth = treePanel.clientWidth || width || 1000;
+            const panelHeight = treePanel.clientHeight || height || 700;
+            const minSpread = panelWidth <= 800 ? 180 : 260;
+            const countBoost = Math.max(0, rootCount - 2) * 34;
+            return Math.max(minSpread + countBoost, Math.min(panelWidth, panelHeight) * 0.32);
+        }
 
         let nodeId = 0;
         function assignIds(node, depth, rootIdx) {
@@ -355,6 +374,7 @@ if (!window.d3) {
         }
 
         function getNodeSize(node, deepestLevel) {
+            const { baseSize, halfSize } = getLayoutMetrics();
             if (node._depth === deepestLevel) {
                 return halfSize;
             }
@@ -542,6 +562,8 @@ if (!window.d3) {
             const allLinks = [];
 
             const deepestLevel = getDeepestVisibleLevel();
+            const layout = getLayoutMetrics();
+            visibleBounds = null;
 
             getActiveRoots().forEach((root, idx) => {
                 const cx = rootPositions[idx].x;
@@ -555,29 +577,58 @@ if (!window.d3) {
                 renderChildren(root, cx, cy, 0, 0, Math.PI * 2);
             });
 
+            function countVisibleLeaves(node) {
+                const visible = node._visibleChildren || [];
+                if (visible.length === 0) return 1;
+                return visible.reduce((sum, child) => sum + countVisibleLeaves(child), 0);
+            }
+
             function renderChildren(parent, cx, cy, depth, startAngle, endAngle) {
                 const visible = parent._visibleChildren || [];
                 if (visible.length === 0) return;
 
-                const count = visible.length;
-                const angleStep = (endAngle - startAngle) / count;
-                const radius = ringRadius;
+                const childWeights = visible.map(countVisibleLeaves);
+                const totalWeight = childWeights.reduce((sum, value) => sum + value, 0);
+                const siblingGap = Math.min(layout.siblingGap, ((endAngle - startAngle) / Math.max(visible.length, 1)) * 0.35);
+                const usableAngle = Math.max(0.01, (endAngle - startAngle) - siblingGap * Math.max(0, visible.length - 1));
+                let cursor = startAngle;
 
                 visible.forEach((child, idx) => {
-                    const angle = startAngle + (idx * angleStep) + (angleStep / 2);
-                    child._x = cx + (radius * (depth + 1)) * Math.cos(angle);
-                    child._y = cy + (radius * (depth + 1)) * Math.sin(angle);
+                    const angleSpan = usableAngle * (childWeights[idx] / totalWeight);
+                    const childStart = cursor;
+                    const childEnd = cursor + angleSpan;
+                    const angle = childStart + angleSpan / 2;
+                    const ringDistance = layout.ringSpacing * (depth + 1) + Math.max(0, visible.length - 4) * 12;
+                    child._x = cx + ringDistance * Math.cos(angle);
+                    child._y = cy + ringDistance * Math.sin(angle);
 
                     child._r = getNodeSize(child, deepestLevel);
 
                     allNodes.push(child);
                     allLinks.push({ source: parent, target: child });
 
-                    const childStart = startAngle + (idx * angleStep);
-                    const childEnd = startAngle + ((idx + 1) * angleStep);
                     renderChildren(child, cx, cy, depth + 1, childStart, childEnd);
+                    cursor = childEnd + siblingGap;
                 });
             }
+
+            allNodes.forEach(node => {
+                const padding = node._r + 28;
+                if (!visibleBounds) {
+                    visibleBounds = {
+                        minX: node._x - padding,
+                        maxX: node._x + padding,
+                        minY: node._y - padding,
+                        maxY: node._y + padding
+                    };
+                    return;
+                }
+
+                visibleBounds.minX = Math.min(visibleBounds.minX, node._x - padding);
+                visibleBounds.maxX = Math.max(visibleBounds.maxX, node._x + padding);
+                visibleBounds.minY = Math.min(visibleBounds.minY, node._y - padding);
+                visibleBounds.maxY = Math.max(visibleBounds.maxY, node._y + padding);
+            });
 
             // Draw links
             g.selectAll("path.link")
@@ -793,10 +844,26 @@ if (!window.d3) {
             const rootDistance = rootPositions.reduce((maxDistance, pos) => {
                 const distance = Math.hypot(pos.x - rootX, pos.y - rootY);
                 return Math.max(maxDistance, distance);
-            }, baseSize);
-            const scale = Math.min(1.5, (fullWidth * 1.4) / (rootDistance + baseSize * 4));
+            }, getLayoutMetrics().baseSize);
 
-            const translate = [fullWidth / 2 - scale * rootX, fullHeight / 2 - scale * rootY];
+            const bounds = visibleBounds || {
+                minX: rootX - rootDistance,
+                maxX: rootX + rootDistance,
+                minY: rootY - rootDistance,
+                maxY: rootY + rootDistance
+            };
+            const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
+            const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
+            const boundsCenterX = (bounds.minX + bounds.maxX) / 2;
+            const boundsCenterY = (bounds.minY + bounds.maxY) / 2;
+            const padding = fullWidth <= 800 ? 56 : 96;
+            const fitScale = Math.min(
+                (fullWidth - padding) / boundsWidth,
+                (fullHeight - padding) / boundsHeight
+            );
+            const scale = Math.max(0.18, Math.min(getLayoutMetrics().maxScale, fitScale));
+
+            const translate = [fullWidth / 2 - scale * boundsCenterX, fullHeight / 2 - scale * boundsCenterY];
 
             const transform = d3.zoomIdentity
                 .translate(translate[0], translate[1])
