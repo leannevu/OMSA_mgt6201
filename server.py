@@ -18,7 +18,7 @@ class KnowledgeTreeHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path == "/api/accounting-quiz-csv":
+        if parsed.path in ("/api/accounting-quiz-csv", "/api/accounting-csv", "/api/accounting.csv"):
             self.serve_csv(ACCOUNTING_QUIZ_CSV, "Accounting quiz CSV not found")
             return
 

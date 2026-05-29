@@ -214,7 +214,7 @@ if (!window.d3) {
             })));
         }
 
-        function loadAccountingQuiz(csvText, sourceName = 'accounting.csv') {
+        function loadAccountingQuiz(csvText, sourceName = 'accounting_quiz.csv') {
             const rows = parseCSVRobust(csvText);
             quizQuestions = parseQuizRows(rows);
 
