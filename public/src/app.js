@@ -456,9 +456,12 @@ if (!window.d3) {
                         </label>
                         <div class="quiz-tool-row">
                             <button id="reset-quiz-button" class="quiz-tool-button" type="button">Reset quiz</button>
-                            <button id="clear-topics-button" class="quiz-tool-button" type="button">Clear topics</button>
+                            <button id="shuffle-quiz-button" class="quiz-tool-button" type="button">Shuffle</button>
                         </div>
-                        <button id="pick-topics-button" class="quiz-tool-button full" type="button">Pick topics</button>
+                        <div class="quiz-tool-row">
+                            <button id="clear-topics-button" class="quiz-tool-button" type="button">Clear topics</button>
+                            <button id="pick-topics-button" class="quiz-tool-button" type="button">Pick topics</button>
+                        </div>
                     </div>
                     <div class="quiz-nav-section">
                         <div class="quiz-nav-label">Topics</div>
@@ -478,6 +481,7 @@ if (!window.d3) {
                 showNotice(freezeQuizTabs ? 'Tabs and topic filters are frozen.' : 'Tabs and topic filters are unlocked.');
             });
             document.getElementById('reset-quiz-button').addEventListener('click', resetQuizSession);
+            document.getElementById('shuffle-quiz-button').addEventListener('click', shuffleQuizCards);
             document.getElementById('clear-topics-button').addEventListener('click', clearQuizTopics);
             document.getElementById('pick-topics-button').addEventListener('click', pickQuizTopics);
 
@@ -525,6 +529,30 @@ if (!window.d3) {
             renderQuizSidebar();
             renderQuizQuestion();
             showNotice('Quiz reset.');
+        }
+
+        function shuffleQuizCards() {
+            if (activeQuizQuestions.length <= 1) {
+                showNotice('Need at least two cards to shuffle.');
+                return;
+            }
+
+            activeQuizQuestions = shuffleArray(activeQuizQuestions);
+            quizIndex = 0;
+            selectedOptionIndex = null;
+            quizAnswers = Array(activeQuizQuestions.length).fill(null);
+            quizFinished = false;
+            renderQuizQuestion();
+            showNotice(`Shuffled ${activeQuizQuestions.length} quiz cards.`);
+        }
+
+        function shuffleArray(items) {
+            const shuffled = items.slice();
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
         }
 
         function clearQuizTopics() {
@@ -580,6 +608,7 @@ if (!window.d3) {
                         ${savedAnswer === null ? '' : buildFeedbackHTML(question, savedAnswer === question.correctIndex)}
                     </div>
                     <div class="quiz-footer">
+                        <button id="quiz-shuffle" class="quiz-nav-button" type="button">Shuffle</button>
                         <button id="quiz-prev" class="quiz-nav-button" type="button" ${quizIndex === 0 ? 'disabled' : ''}>Previous</button>
                         <button id="quiz-next" class="quiz-nav-button primary" type="button">${quizIndex === activeQuizQuestions.length - 1 ? 'Finish' : 'Next'}</button>
                     </div>
@@ -589,6 +618,7 @@ if (!window.d3) {
             container.querySelectorAll('.quiz-option').forEach(button => {
                 button.addEventListener('click', event => selectQuizOption(Number(event.currentTarget.dataset.index)));
             });
+            document.getElementById('quiz-shuffle').addEventListener('click', shuffleQuizCards);
             document.getElementById('quiz-prev').addEventListener('click', () => moveQuiz(-1));
             document.getElementById('quiz-next').addEventListener('click', () => moveQuiz(1));
         }
@@ -661,6 +691,7 @@ if (!window.d3) {
                         <div class="score-detail">${answered} of ${total} question${total === 1 ? '' : 's'} answered</div>
                         <div class="score-actions">
                             <button id="score-reset-button" class="quiz-nav-button primary" type="button">Reset quiz</button>
+                            <button id="score-shuffle-button" class="quiz-nav-button" type="button">Shuffle</button>
                             <button id="score-topics-button" class="quiz-nav-button" type="button">Pick topics</button>
                         </div>
                     </section>
@@ -668,6 +699,7 @@ if (!window.d3) {
             `;
 
             document.getElementById('score-reset-button').addEventListener('click', resetQuizSession);
+            document.getElementById('score-shuffle-button').addEventListener('click', shuffleQuizCards);
             document.getElementById('score-topics-button').addEventListener('click', pickQuizTopics);
         }
 
