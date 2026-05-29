@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Knowledge Satellite Tree</title>
+    <title>Accounting Quiz</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="src/styles.css">
@@ -14,6 +14,10 @@
         <div id="sidebar-header">
             <div class="file-icon"></div>
             <span class="file-name">knowledge_tree.txt</span>
+            <div class="view-tabs" aria-label="accounting.csv views">
+                <button id="quiz-view-button" class="view-tab active" type="button">Quiz</button>
+                <button id="mindmap-view-button" class="view-tab" type="button">Mindmap</button>
+            </div>
         </div>
         <div id="sidebar-content">
             <div class="empty-state">Hover over a node to see its hierarchy</div>
@@ -25,7 +29,7 @@
         <div id="tree-container"></div>
         <div id="route-bar"></div>
         <div class="controls">
-            <button id="accounting-button" type="button">Accounting CSV</button>
+            <button id="accounting-button" type="button">accounting.csv</button>
             <button id="collapse-button" type="button">Collapse All</button>
             <button id="reset-button" type="button">Reset View</button>
             <button id="clear-button" type="button">Clear</button>

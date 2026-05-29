@@ -13,6 +13,20 @@ if (!window.d3) {
         let currentSidebarNode = null;
         let nodeByName = {};
         let noticeTimer = null;
+        let quizQuestions = [];
+        let activeQuizQuestions = [];
+        let quizIndex = 0;
+        let selectedOptionIndex = null;
+        let activeTopicFilter = 'All';
+        let activeCategoryFilter = 'All';
+        let accountingQuizCsvText = '';
+        let accountingMapCsvText = '';
+        let accountingQuizSourceName = 'accounting_quiz.csv';
+        let accountingMapSourceName = 'accounting_map.csv';
+        let currentView = 'quiz';
+        let quizAnswers = [];
+        let quizFinished = false;
+        let freezeQuizTabs = false;
 
         function showNotice(message, isError = false) {
             const notice = document.getElementById('notice');
@@ -141,22 +155,539 @@ if (!window.d3) {
         }
 
         // ===== ACCOUNTING CSV =====
-        async function loadAccountingCSV() {
+        async function fetchAccountingCSV(endpoint, sourceName) {
+            const response = await fetch(endpoint, { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error(`${sourceName}: server returned ${response.status}`);
+            }
+            return response.text();
+        }
+
+        async function loadAccountingQuizCSV() {
             try {
-                const response = await fetch('/api/accounting-csv', { cache: 'no-store' });
-                if (!response.ok) {
-                    throw new Error(`server returned ${response.status}`);
+                const candidates = await loadAccountingCSVCandidates();
+                const quizCandidate = candidates.find(candidate => parseQuizRows(parseCSVRobust(candidate.csv)).length > 0);
+                const fallbackCandidate = candidates.find(candidate => extractTermsFromRows(parseCSVRobust(candidate.csv)).length > 0);
+                const selected = quizCandidate || fallbackCandidate;
+
+                if (!selected) {
+                    showNotice('No usable accounting quiz or term rows found.', true);
+                    return;
                 }
 
-                const csv = await response.text();
-                parseCSV(csv, 'accounting.csv');
+                accountingQuizCsvText = selected.csv;
+                accountingQuizSourceName = selected.sourceName;
+                loadAccountingQuiz(selected.csv, selected.sourceName);
             } catch (error) {
-                showNotice(`Could not load accounting.csv. ${error.message}`, true);
+                showNotice(`Could not load accounting quiz data. ${error.message}`, true);
             }
+        }
+
+        async function loadAccountingMapCSV() {
+            try {
+                const candidates = await loadAccountingCSVCandidates();
+                const selected = candidates.find(candidate => extractMapTerms(parseCSVRobust(candidate.csv)).length > 0);
+
+                if (!selected) {
+                    showNotice('No usable mindmap rows found. CSV needs term, definition, and branch columns.', true);
+                    return '';
+                }
+
+                accountingMapCsvText = selected.csv;
+                accountingMapSourceName = selected.sourceName;
+                return accountingMapCsvText;
+            } catch (error) {
+                showNotice(`Could not load accounting map data. ${error.message}`, true);
+                return '';
+            }
+        }
+
+        async function loadAccountingCSVCandidates() {
+            const sources = [
+                { endpoint: '/api/accounting-quiz-csv', sourceName: 'accounting_quiz.csv' },
+                { endpoint: '/api/accounting-map-csv', sourceName: 'accounting_map.csv' }
+            ];
+
+            return Promise.all(sources.map(async source => ({
+                ...source,
+                csv: await fetchAccountingCSV(source.endpoint, source.sourceName)
+            })));
+        }
+
+        function loadAccountingQuiz(csvText, sourceName = 'accounting.csv') {
+            const rows = parseCSVRobust(csvText);
+            quizQuestions = parseQuizRows(rows);
+
+            if (quizQuestions.length === 0) {
+                quizQuestions = buildQuizFromTerms(rows);
+            }
+
+            if (quizQuestions.length === 0) {
+                showNotice(`No usable quiz rows found in ${sourceName}.`, true);
+                return;
+            }
+
+            currentView = 'quiz';
+            document.body.classList.add('quiz-mode');
+            document.querySelector('.file-name').textContent = sourceName;
+            setViewButtons();
+            activeTopicFilter = 'All';
+            activeCategoryFilter = 'All';
+            quizIndex = 0;
+            selectedOptionIndex = null;
+            quizFinished = false;
+            freezeQuizTabs = false;
+            setViewButtons();
+            applyQuizFilters();
+            showNotice(`Loaded ${quizQuestions.length} accounting question${quizQuestions.length === 1 ? '' : 's'}.`);
+        }
+
+        function switchToQuiz() {
+            if (accountingQuizCsvText) {
+                loadAccountingQuiz(accountingQuizCsvText, accountingQuizSourceName);
+            } else {
+                loadAccountingQuizCSV();
+            }
+        }
+
+        async function switchToMindmap() {
+            if (freezeQuizTabs) {
+                showNotice('Tabs are frozen. Use Pick topics or turn off Freeze tabs first.');
+                return;
+            }
+
+            if (!accountingMapCsvText) {
+                const csv = await loadAccountingMapCSV();
+                if (!csv) return;
+            }
+
+            if (!accountingMapCsvText) {
+                return;
+            }
+
+            currentView = 'mindmap';
+            document.body.classList.remove('quiz-mode');
+            setViewButtons();
+            initializeTreeCanvas();
+            parseCSV(accountingMapCsvText, accountingMapSourceName);
+            clearSidebar();
+        }
+
+        function setViewButtons() {
+            document.getElementById('quiz-view-button').classList.toggle('active', currentView === 'quiz');
+            document.getElementById('mindmap-view-button').classList.toggle('active', currentView === 'mindmap');
+            document.getElementById('mindmap-view-button').disabled = freezeQuizTabs && currentView === 'quiz';
+        }
+
+        function parseQuizRows(rows) {
+            if (rows.length < 2) return [];
+
+            const headers = rows[0].map(normalizeHeader);
+            const headerMap = {};
+            headers.forEach((header, idx) => {
+                headerMap[header] = idx;
+            });
+
+            const required = ['topic', 'category', 'question', 'option', 'iscorrect', 'explanation'];
+            if (!required.every(header => header in headerMap)) return [];
+
+            const questionMap = new Map();
+
+            rows.slice(1).forEach(row => {
+                const question = (row[headerMap.question] || '').trim();
+                const option = (row[headerMap.option] || '').trim();
+                if (!question || !option) return;
+
+                const topic = (row[headerMap.topic] || 'Accounting').trim() || 'Accounting';
+                const category = (row[headerMap.category] || topic).trim() || topic;
+                const explanation = (row[headerMap.explanation] || '').trim();
+                const isCorrectValue = String(row[headerMap.iscorrect] || '').trim().toLowerCase();
+                const isCorrect = ['true', 't', 'yes', 'y', '1', 'correct'].includes(isCorrectValue);
+                const key = `${topic}||${category}||${question}`;
+
+                if (!questionMap.has(key)) {
+                    questionMap.set(key, {
+                        topic,
+                        category,
+                        question,
+                        options: [],
+                        correctIndex: -1,
+                        explanation
+                    });
+                }
+
+                const item = questionMap.get(key);
+                if (explanation && !item.explanation) item.explanation = explanation;
+                if (isCorrect) item.correctIndex = item.options.length;
+                item.options.push(option);
+            });
+
+            return Array.from(questionMap.values()).filter(item => item.options.length >= 2 && item.correctIndex >= 0);
+        }
+
+        function buildQuizFromTerms(rows) {
+            const termsFromCsv = extractTermsFromRows(rows);
+            if (termsFromCsv.length < 2) return [];
+
+            return termsFromCsv.map((term, index) => {
+                const distractors = termsFromCsv
+                    .filter(candidate => candidate.definition && candidate.term !== term.term)
+                    .sort((a, b) => {
+                        const aScore = candidateCategoryScore(term, a);
+                        const bScore = candidateCategoryScore(term, b);
+                        return bScore - aScore;
+                    })
+                    .slice(0, 3)
+                    .map(candidate => candidate.definition);
+
+                const options = [term.definition, ...distractors].filter(Boolean).slice(0, 4);
+                const rotated = rotateOptions(options, index);
+                const correctIndex = rotated.indexOf(term.definition);
+
+                return {
+                    topic: term.topic,
+                    category: term.category,
+                    question: `Which description best matches ${term.term}?`,
+                    options: rotated,
+                    correctIndex,
+                    explanation: term.example
+                        ? `${term.term}: ${term.definition} Example: ${term.example}`
+                        : `${term.term}: ${term.definition}`
+                };
+            }).filter(item => item.options.length >= 2 && item.correctIndex >= 0);
+        }
+
+        function extractTermsFromRows(rows) {
+            const termsFromCsv = [];
+            let startIdx = 0;
+            let termIdx = 0;
+            let definitionIdx = 1;
+            let branchIdx = 3;
+            let exampleIdx = 2;
+
+            if (rows.length > 0) {
+                const firstRow = rows[0].map(normalizeHeader);
+                const headerMap = {};
+                firstRow.forEach((header, idx) => {
+                    headerMap[header] = idx;
+                });
+
+                const hasHeader = ['term', 'definition', 'branch', 'example'].some(header => header in headerMap);
+                if (hasHeader) {
+                    startIdx = 1;
+                    termIdx = headerMap.term ?? headerMap.name ?? 0;
+                    definitionIdx = headerMap.definition ?? headerMap.def ?? 1;
+                    branchIdx = headerMap.branch ?? headerMap.parent ?? headerMap.path ?? 3;
+                    exampleIdx = headerMap.example ?? headerMap.examples ?? 2;
+                }
+            }
+
+            for (let i = startIdx; i < rows.length; i++) {
+                const parts = rows[i];
+                const term = (parts[termIdx] || '').trim();
+                const definition = (parts[definitionIdx] || '').trim();
+                const branch = (parts[branchIdx] || 'Accounting').trim() || 'Accounting';
+                const example = (parts[exampleIdx] || '').trim();
+                const path = branch.split('>').map(part => part.trim()).filter(Boolean);
+                const topic = path[0] && path[0] !== 'Root' ? path[0] : 'Accounting';
+                const category = path.length > 1 ? path[path.length - 1] : topic;
+
+                if (term && definition) {
+                    termsFromCsv.push({ term, definition, example, branch, topic, category });
+                }
+            }
+
+            return termsFromCsv;
+        }
+
+        function candidateCategoryScore(base, candidate) {
+            let score = 0;
+            if (base.topic === candidate.topic) score += 2;
+            if (base.category === candidate.category) score += 3;
+            return score;
+        }
+
+        function rotateOptions(options, offset) {
+            const unique = [];
+            options.forEach(option => {
+                if (!unique.includes(option)) unique.push(option);
+            });
+            if (unique.length <= 1) return unique;
+            const shift = offset % unique.length;
+            return unique.slice(shift).concat(unique.slice(0, shift));
+        }
+
+        function applyQuizFilters() {
+            activeQuizQuestions = quizQuestions.filter(question => {
+                const topicMatch = activeTopicFilter === 'All' || question.topic === activeTopicFilter;
+                const categoryMatch = activeCategoryFilter === 'All' || question.category === activeCategoryFilter;
+                return topicMatch && categoryMatch;
+            });
+
+            if (activeQuizQuestions.length === 0) {
+                activeQuizQuestions = quizQuestions;
+                activeTopicFilter = 'All';
+                activeCategoryFilter = 'All';
+            }
+
+            quizIndex = Math.min(quizIndex, Math.max(0, activeQuizQuestions.length - 1));
+            selectedOptionIndex = null;
+            quizAnswers = Array(activeQuizQuestions.length).fill(null);
+            quizFinished = false;
+            renderQuizSidebar();
+            renderQuizQuestion();
+        }
+
+        function renderQuizSidebar() {
+            const sidebarContent = document.getElementById('sidebar-content');
+            const topics = ['All', ...Array.from(new Set(quizQuestions.map(question => question.topic))).sort()];
+            const categories = ['All', ...Array.from(new Set(
+                quizQuestions
+                    .filter(question => activeTopicFilter === 'All' || question.topic === activeTopicFilter)
+                    .map(question => question.category)
+            )).sort()];
+
+            sidebarContent.innerHTML = `
+                <div class="quiz-nav">
+                    <div class="quiz-tools">
+                        <label class="quiz-lock">
+                            <input id="freeze-tabs-toggle" type="checkbox" ${freezeQuizTabs ? 'checked' : ''}>
+                            <span>Freeze tabs</span>
+                        </label>
+                        <div class="quiz-tool-row">
+                            <button id="reset-quiz-button" class="quiz-tool-button" type="button">Reset quiz</button>
+                            <button id="clear-topics-button" class="quiz-tool-button" type="button">Clear topics</button>
+                        </div>
+                        <button id="pick-topics-button" class="quiz-tool-button full" type="button">Pick topics</button>
+                    </div>
+                    <div class="quiz-nav-section">
+                        <div class="quiz-nav-label">Topics</div>
+                        ${topics.map(topic => buildFilterButton('topic', topic, activeTopicFilter === topic)).join('')}
+                    </div>
+                    <div class="quiz-nav-section">
+                        <div class="quiz-nav-label">Categories</div>
+                        ${categories.map(category => buildFilterButton('category', category, activeCategoryFilter === category)).join('')}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('freeze-tabs-toggle').addEventListener('change', event => {
+                freezeQuizTabs = event.currentTarget.checked;
+                setViewButtons();
+                renderQuizSidebar();
+                showNotice(freezeQuizTabs ? 'Tabs and topic filters are frozen.' : 'Tabs and topic filters are unlocked.');
+            });
+            document.getElementById('reset-quiz-button').addEventListener('click', resetQuizSession);
+            document.getElementById('clear-topics-button').addEventListener('click', clearQuizTopics);
+            document.getElementById('pick-topics-button').addEventListener('click', pickQuizTopics);
+
+            sidebarContent.querySelectorAll('.quiz-filter').forEach(button => {
+                button.addEventListener('click', event => {
+                    if (freezeQuizTabs) {
+                        showNotice('Topic filters are frozen. Use Pick topics or turn off Freeze tabs first.');
+                        return;
+                    }
+
+                    const type = event.currentTarget.dataset.type;
+                    const value = event.currentTarget.dataset.value;
+                    if (type === 'topic') {
+                        activeTopicFilter = value;
+                        activeCategoryFilter = 'All';
+                    } else {
+                        activeCategoryFilter = value;
+                    }
+                    quizIndex = 0;
+                    applyQuizFilters();
+                });
+            });
+        }
+
+        function buildFilterButton(type, value, isActive) {
+            const count = quizQuestions.filter(question => {
+                if (type === 'topic') return value === 'All' || question.topic === value;
+                const topicMatch = activeTopicFilter === 'All' || question.topic === activeTopicFilter;
+                return (value === 'All' || question.category === value) && topicMatch;
+            }).length;
+
+            return `
+                <button class="quiz-filter ${isActive ? 'active' : ''}" type="button" data-type="${type}" data-value="${escapeHTML(value)}" ${freezeQuizTabs ? 'disabled' : ''}>
+                    <span>${escapeHTML(value)}</span>
+                    <span>${count}</span>
+                </button>
+            `;
+        }
+
+        function resetQuizSession() {
+            quizIndex = 0;
+            selectedOptionIndex = null;
+            quizAnswers = Array(activeQuizQuestions.length).fill(null);
+            quizFinished = false;
+            renderQuizSidebar();
+            renderQuizQuestion();
+            showNotice('Quiz reset.');
+        }
+
+        function clearQuizTopics() {
+            freezeQuizTabs = false;
+            activeTopicFilter = 'All';
+            activeCategoryFilter = 'All';
+            quizIndex = 0;
+            selectedOptionIndex = null;
+            setViewButtons();
+            applyQuizFilters();
+            showNotice('Topic filters cleared.');
+        }
+
+        function pickQuizTopics() {
+            freezeQuizTabs = false;
+            setViewButtons();
+            renderQuizSidebar();
+            showNotice('Topic filters are unlocked.');
+        }
+
+        function renderQuizQuestion() {
+            if (activeQuizQuestions.length === 0) return;
+            if (quizFinished) {
+                renderQuizScore();
+                return;
+            }
+
+            const container = document.getElementById('tree-container');
+            const question = activeQuizQuestions[quizIndex];
+            const progress = ((quizIndex + 1) / activeQuizQuestions.length) * 100;
+            const savedAnswer = quizAnswers[quizIndex];
+
+            document.getElementById('route-bar').innerHTML = '';
+
+            container.innerHTML = `
+                <main class="quiz-shell">
+                    <div class="quiz-progress-track">
+                        <div class="quiz-progress-fill" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="quiz-meta">
+                        <div class="quiz-pill">${escapeHTML(question.category || question.topic)}</div>
+                        <div class="quiz-count">${quizIndex + 1} of ${activeQuizQuestions.length}</div>
+                    </div>
+                    <h1 class="quiz-question">${escapeHTML(question.question)}</h1>
+                    <div class="quiz-options">
+                        ${question.options.map((option, idx) => `
+                            <button class="quiz-option ${getOptionClass(question, savedAnswer, idx)}" type="button" data-index="${idx}">
+                                ${String.fromCharCode(65 + idx)}. ${escapeHTML(option)}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div id="quiz-feedback" class="quiz-feedback ${savedAnswer === null ? '' : `visible ${savedAnswer === question.correctIndex ? 'correct' : 'incorrect'}`}" aria-live="polite">
+                        ${savedAnswer === null ? '' : buildFeedbackHTML(question, savedAnswer === question.correctIndex)}
+                    </div>
+                    <div class="quiz-footer">
+                        <button id="quiz-prev" class="quiz-nav-button" type="button" ${quizIndex === 0 ? 'disabled' : ''}>Previous</button>
+                        <button id="quiz-next" class="quiz-nav-button primary" type="button">${quizIndex === activeQuizQuestions.length - 1 ? 'Finish' : 'Next'}</button>
+                    </div>
+                </main>
+            `;
+
+            container.querySelectorAll('.quiz-option').forEach(button => {
+                button.addEventListener('click', event => selectQuizOption(Number(event.currentTarget.dataset.index)));
+            });
+            document.getElementById('quiz-prev').addEventListener('click', () => moveQuiz(-1));
+            document.getElementById('quiz-next').addEventListener('click', () => moveQuiz(1));
+        }
+
+        function getOptionClass(question, savedAnswer, optionIndex) {
+            if (savedAnswer === null) return '';
+            const classes = [];
+            if (optionIndex === savedAnswer) classes.push('selected');
+            if (optionIndex === question.correctIndex) classes.push('correct');
+            if (optionIndex === savedAnswer && savedAnswer !== question.correctIndex) classes.push('incorrect');
+            return classes.join(' ');
+        }
+
+        function buildFeedbackHTML(question, isCorrect) {
+            return `<strong>${isCorrect ? 'Correct.' : 'Not quite.'}</strong> ${escapeHTML(question.explanation || 'Review the matching accounting concept and try the next one.')}`;
+        }
+
+        function selectQuizOption(index) {
+            selectedOptionIndex = index;
+            quizAnswers[quizIndex] = index;
+            const question = activeQuizQuestions[quizIndex];
+            const isCorrect = index === question.correctIndex;
+            const feedback = document.getElementById('quiz-feedback');
+
+            document.querySelectorAll('.quiz-option').forEach((button, idx) => {
+                button.classList.toggle('selected', idx === index);
+                button.classList.toggle('correct', idx === question.correctIndex);
+                button.classList.toggle('incorrect', idx === index && !isCorrect);
+            });
+
+            feedback.className = `quiz-feedback visible ${isCorrect ? 'correct' : 'incorrect'}`;
+            feedback.innerHTML = buildFeedbackHTML(question, isCorrect);
+        }
+
+        function moveQuiz(direction) {
+            if (direction > 0 && quizIndex >= activeQuizQuestions.length - 1) {
+                quizFinished = true;
+                renderQuizScore();
+                return;
+            } else {
+                quizIndex = Math.max(0, Math.min(activeQuizQuestions.length - 1, quizIndex + direction));
+            }
+            selectedOptionIndex = quizAnswers[quizIndex];
+            renderQuizQuestion();
+        }
+
+        function getQuizScore() {
+            return quizAnswers.reduce((score, answer, index) => {
+                return score + (answer === activeQuizQuestions[index].correctIndex ? 1 : 0);
+            }, 0);
+        }
+
+        function renderQuizScore() {
+            const container = document.getElementById('tree-container');
+            const score = getQuizScore();
+            const total = activeQuizQuestions.length;
+            const answered = quizAnswers.filter(answer => answer !== null).length;
+            const percent = total ? Math.round((score / total) * 100) : 0;
+
+            document.getElementById('route-bar').innerHTML = '';
+            container.innerHTML = `
+                <main class="quiz-shell score-shell">
+                    <div class="quiz-progress-track">
+                        <div class="quiz-progress-fill" style="width: 100%"></div>
+                    </div>
+                    <section class="score-card">
+                        <div class="score-label">Score</div>
+                        <div class="score-value">${score} / ${total}</div>
+                        <div class="score-percent">${percent}% correct</div>
+                        <div class="score-detail">${answered} of ${total} question${total === 1 ? '' : 's'} answered</div>
+                        <div class="score-actions">
+                            <button id="score-reset-button" class="quiz-nav-button primary" type="button">Reset quiz</button>
+                            <button id="score-topics-button" class="quiz-nav-button" type="button">Pick topics</button>
+                        </div>
+                    </section>
+                </main>
+            `;
+
+            document.getElementById('score-reset-button').addEventListener('click', resetQuizSession);
+            document.getElementById('score-topics-button').addEventListener('click', pickQuizTopics);
         }
 
         function parseCSV(csvText, sourceName = 'CSV') {
             const rows = parseCSVRobust(csvText);
+            const newTerms = extractMapTerms(rows);
+
+            if (newTerms.length > 0) {
+                terms = newTerms;
+                clickedNode = null;
+                focusedNode = null;
+                rebuildTree();
+                document.querySelector('.file-name').textContent = sourceName;
+                showNotice(`Imported ${newTerms.length} term${newTerms.length === 1 ? '' : 's'} from ${sourceName}.`);
+            } else {
+                showNotice(`No usable rows found in ${sourceName}. CSV needs term, definition, and branch columns.`, true);
+            }
+        }
+
+        function extractMapTerms(rows) {
             const newTerms = [];
 
             let startIdx = 0;
@@ -173,6 +704,11 @@ if (!window.d3) {
                 });
 
                 const hasHeader = ['term', 'definition', 'branch', 'example'].some(header => header in headerMap);
+                const hasQuizHeader = ['topic', 'category', 'question', 'option', 'iscorrect'].some(header => header in headerMap);
+                if (hasQuizHeader && !hasHeader) {
+                    return [];
+                }
+
                 if (hasHeader) {
                     startIdx = 1;
                     termIdx = headerMap.term ?? headerMap.name ?? 0;
@@ -196,16 +732,7 @@ if (!window.d3) {
                 }
             }
 
-            if (newTerms.length > 0) {
-                terms = newTerms;
-                clickedNode = null;
-                focusedNode = null;
-                rebuildTree();
-                document.querySelector('.file-name').textContent = sourceName;
-                showNotice(`Imported ${newTerms.length} term${newTerms.length === 1 ? '' : 's'} from ${sourceName}.`);
-            } else {
-                showNotice('No usable rows found. CSV needs term, definition, and branch columns.', true);
-            }
+            return newTerms;
         }
 
         // ===== BUILD FOREST =====
@@ -303,19 +830,25 @@ if (!window.d3) {
         const width = treePanel.clientWidth;
         const height = treePanel.clientHeight;
 
-        const svg = d3.select("#tree-container").append("svg")
-            .attr("width", width)
-            .attr("height", height);
+        let svg = null;
+        let zoom = null;
+        let g = null;
 
-        const zoom = d3.zoom()
-            .scaleExtent([0.15, 4])
-            .on("zoom", (event) => {
-                g.attr("transform", event.transform);
-            });
+        function initializeTreeCanvas() {
+            container.innerHTML = '';
+            svg = d3.select("#tree-container").append("svg")
+                .attr("width", treePanel.clientWidth || width)
+                .attr("height", treePanel.clientHeight || height);
 
-        svg.call(zoom);
+            zoom = d3.zoom()
+                .scaleExtent([0.15, 4])
+                .on("zoom", (event) => {
+                    if (g) g.attr("transform", event.transform);
+                });
 
-        const g = svg.append("g");
+            svg.call(zoom);
+            g = svg.append("g");
+        }
 
         const rootPositions = [
             { x: width * 0.32, y: height * 0.5 },
@@ -556,6 +1089,10 @@ if (!window.d3) {
 
         // ===== RENDER =====
         function render() {
+            if (!g) {
+                initializeTreeCanvas();
+            }
+
             g.selectAll("*").remove();
 
             const allNodes = [];
@@ -827,7 +1364,9 @@ if (!window.d3) {
         }
 
         function bindControls() {
-            document.getElementById('accounting-button').addEventListener('click', loadAccountingCSV);
+            document.getElementById('accounting-button').addEventListener('click', switchToQuiz);
+            document.getElementById('quiz-view-button').addEventListener('click', switchToQuiz);
+            document.getElementById('mindmap-view-button').addEventListener('click', switchToMindmap);
             document.getElementById('collapse-button').addEventListener('click', collapseAll);
             document.getElementById('reset-button').addEventListener('click', resetZoom);
             document.getElementById('clear-button').addEventListener('click', clearSelection);
@@ -835,6 +1374,8 @@ if (!window.d3) {
 
         // Center view on both root nodes - CLOSER ZOOM
         function centerOnRoots() {
+            if (!svg || !zoom) return;
+
             const fullWidth = treePanel.clientWidth;
             const fullHeight = treePanel.clientHeight;
 
@@ -874,14 +1415,22 @@ if (!window.d3) {
 
         // Initial render and center on roots
         bindControls();
+        initializeTreeCanvas();
         render();
         setTimeout(centerOnRoots, 50);
-        loadAccountingCSV();
+        loadAccountingQuizCSV();
 
         // Resize
         window.addEventListener('resize', () => {
             const newWidth = treePanel.clientWidth;
             const newHeight = treePanel.clientHeight;
+            if (currentView === 'quiz') {
+                renderQuizQuestion();
+                return;
+            }
+            if (!svg) {
+                initializeTreeCanvas();
+            }
             svg.attr("width", newWidth).attr("height", newHeight);
             updateRootPositions();
             render();
