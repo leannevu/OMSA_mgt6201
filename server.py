@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC_ROOT = ROOT / "public"
 ACCOUNTING_QUIZ_CSV = ROOT / "data" / "accounting_quiz.csv"
 ACCOUNTING_MAP_CSV = ROOT / "data" / "accounting_map.csv"
-HOST = "127.0.0.1"
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8001"))
 
 
