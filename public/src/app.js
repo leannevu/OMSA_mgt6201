@@ -1982,9 +1982,13 @@ if (!window.d3) {
 
         function bindControls() {
             document.getElementById('accounting-button').addEventListener('click', switchToQuiz);
-            document.getElementById('quiz-view-button').addEventListener('click', switchToQuiz);
-            document.getElementById('mindmap-view-button').addEventListener('click', switchToMindmap);
-            document.getElementById('practice-view-button').addEventListener('click', switchToPractice);
+            document.querySelector('.view-tabs').addEventListener('click', event => {
+                const tab = event.target.closest('.view-tab');
+                if (!tab) return;
+                if (tab.id === 'quiz-view-button') switchToQuiz();
+                if (tab.id === 'mindmap-view-button') switchToMindmap();
+                if (tab.id === 'practice-view-button') switchToPractice();
+            });
             document.getElementById('collapse-button').addEventListener('click', collapseAll);
             document.getElementById('reset-button').addEventListener('click', resetZoom);
             document.getElementById('clear-button').addEventListener('click', clearSelection);
