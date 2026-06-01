@@ -1,0 +1,6 @@
+step_number,step_title,step_detail
+1,Identify the contract with a customer.,A contract establishes the legal rights and obligations of both the seller and customer.
+2,Identify the performance obligation(s) in the contract.,The contract may have one or more performance obligations (e.g. hardware + software).
+3,Determine the transaction price.,The transaction price is the amount the seller is entitled to receive from the customer.
+4,Allocate the transaction price to each performance obligation.,If multiple obligations exist the contract price must be split proportionally among them.
+5,Recognize revenue when (or as) each performance obligation is satisfied.,Revenue is recognized at a point in time or over time depending on how the obligation is satisfied.

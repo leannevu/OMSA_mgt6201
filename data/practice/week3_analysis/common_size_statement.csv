@@ -1,0 +1,12 @@
+line_label,val_2018,val_2017,val_2016,pct_2018,pct_2017,pct_2016,is_blank,is_subtotal
+Revenue,60420,51122,44282,100,100,100,false,false
+Cost of Revenue,11598,10693,7650,19,21,17,true,false
+Research and Development,8164,7121,6584,14,14,15,true,false
+Sales and Marketing,13039,11455,9818,22,22,22,false,false
+General and Administrative,5127,3329,3758,8,7,8,true,false
+Total Operating Expenses,37928,32598,27810,63,64,63,true,true
+Operating Income,22492,18524,16472,37,36,37,true,true
+Investment Income and Other,1322,1577,1790,2,3,4,false,false
+Income Before Taxes,23814,20101,18262,39,39,41,true,true
+Provision for Income Taxes,6133,6036,5663,10,12,13,false,false
+Net Income,17681,14065,12599,29,28,28,true,true

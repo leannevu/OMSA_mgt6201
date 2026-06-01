@@ -1,0 +1,23 @@
+figure_label,value,notes
+Net Sales,237710,FY2023 53 weeks ended Sep 3 2023
+Total Revenue,242290,Net Sales + Membership fees
+COGS,212586,Merchandise costs
+Net Income,6292,Net income attributable to Costco
+Total Assets End,68994,Balance sheet Sep 3 2023
+Total Assets Beg,64166,Balance sheet Aug 28 2022
+Avg Total Assets,66580,(68994 + 64166) / 2
+Total Equity End,25058,Total equity Sep 3 2023
+Total Equity Beg,20647,Total equity Aug 28 2022
+Avg Equity,22853,(25058 + 20647) / 2
+Current Assets,35879,Sep 3 2023
+Current Liabilities,33583,Sep 3 2023
+Total Liabilities,43936,Sep 3 2023
+A/R End,2285,Receivables net Sep 3 2023
+A/R Beg,2241,Receivables net Aug 28 2022
+Avg A/R,2263,(2285 + 2241) / 2
+Inventory End,16651,Merchandise inventories Sep 3 2023
+Inventory Beg,17907,Merchandise inventories Aug 28 2022
+Avg Inventory,17279,(16651 + 17907) / 2
+A/P End,17483,Accounts payable Sep 3 2023
+A/P Beg,17848,Accounts payable Aug 28 2022
+Avg A/P,17666,(17483 + 17848) / 2

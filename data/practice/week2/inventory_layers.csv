@@ -1,0 +1,5 @@
+exercise_id,layer_label,units,unit_cost,total_cost
+inv1,Beginning Inventory,3000,2,6000
+inv1,Purchase 1,6000,3,18000
+inv1,Purchase 2,4000,4,16000
+inv1,Purchase 3,5000,5,25000

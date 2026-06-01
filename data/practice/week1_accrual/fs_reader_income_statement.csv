@@ -1,0 +1,13 @@
+line_label,value,is_indent,is_total,is_section
+Net Sales,$237710,false,false,false
+Membership Fee Revenue,4580,false,false,false
+Total Revenue,$242290,false,true,false
+Merchandise Costs (COGS),(212586),true,false,false
+Selling General & Administrative,(21590),true,false,false
+Operating Income,$8114,false,true,false
+Interest Expense,(160),true,false,false
+Interest & Investment Income,533,true,false,false
+Income Before Taxes,$8487,false,true,false
+Provision for Income Taxes,(2195),true,false,false
+Net Income,$6292,false,true,false
+EPS (Basic),$14.18,true,false,false

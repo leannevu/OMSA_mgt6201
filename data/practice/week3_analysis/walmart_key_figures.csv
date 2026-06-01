@@ -1,0 +1,23 @@
+figure_label,value,notes
+Net Sales,642637,FY2024 ended Jan 31 2024
+Total Revenue,648125,Net Sales + Membership and other income
+COGS,490142,Cost of sales
+Net Income,16270,Consolidated net income
+Total Assets End,252399,Balance sheet Jan 31 2024
+Total Assets Beg,243197,Balance sheet Jan 31 2023
+Avg Total Assets,247798,(252399 + 243197) / 2
+Total Equity End,90349,Total equity Jan 31 2024
+Total Equity Beg,83754,Total equity Jan 31 2023
+Avg Equity,87052,(90349 + 83754) / 2
+Current Assets,76877,Jan 31 2024
+Current Liabilities,92415,Jan 31 2024
+Total Liabilities,162050,Jan 31 2024
+A/R End,8796,Receivables net Jan 31 2024
+A/R Beg,7933,Receivables net Jan 31 2023
+Avg A/R,8365,(8796 + 7933) / 2
+Inventory End,54892,Inventories Jan 31 2024
+Inventory Beg,56576,Inventories Jan 31 2023
+Avg Inventory,55734,(54892 + 56576) / 2
+A/P End,56812,Accounts payable Jan 31 2024
+A/P Beg,53742,Accounts payable Jan 31 2023
+Avg A/P,55277,(56812 + 53742) / 2

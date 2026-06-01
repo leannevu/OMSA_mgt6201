@@ -1,0 +1,11 @@
+item_label,correct_category,hint
+Checking account balance,Cash,Funds in checking = cash
+Money market fund (30-day maturity),Cash Equivalent,Short-term liquid investment <= 3 months
+Treasury bill (60-day maturity),Cash Equivalent,Government security <= 3 months = cash equivalent
+Savings account balance,Cash,Bank savings = cash
+Certificate of deposit (6-month maturity),Other Investment,Maturity > 3 months - NOT a cash equivalent
+Restricted cash for legal settlement,Restricted Cash,Cannot be used currently - reported separately
+Short-term CD (2-month maturity),Cash Equivalent,Maturity <= 3 months = cash equivalent
+Petty cash on hand,Cash,Currency on hand = cash
+Cash reserved for plant expansion (legally restricted),Restricted Cash,Restricted = not available for current use
+Stock investment held 6 months,Other Investment,Equity investment - not cash or cash equivalent

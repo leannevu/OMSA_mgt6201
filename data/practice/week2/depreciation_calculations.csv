@@ -1,0 +1,11 @@
+exercise_id,method,part_label,answer,is_given,hint
+dep1,Straight-Line,Depreciable Base (Cost $50000 - Salvage $5000),45000,false,$50000 - $5000
+dep1,Straight-Line,Annual SL Depreciation (divided by 5 years),9000,false,$45000 / 5
+dep1,Straight-Line,Book Value after Year 1,41000,false,$50000 - $9000
+dep1,Straight-Line,Book Value after Year 2,32000,false,$41000 - $9000
+dep1,Straight-Line,Book Value after Year 5 (= Salvage Value),5000,false,Should equal salvage value
+dep2,Double-Declining-Balance,DDB Rate (2 divided by 4 years) as %,50,true,2 / useful life = 50%
+dep2,Double-Declining-Balance,Year 1 Depreciation ($40000 x 50%),20000,false,$40000 x 50%
+dep2,Double-Declining-Balance,Book Value End of Year 1,20000,false,$40000 - $20000
+dep2,Double-Declining-Balance,Year 2 Depreciation ($20000 x 50%),10000,false,$20000 x 50%
+dep2,Double-Declining-Balance,Book Value End of Year 2,10000,false,$20000 - $10000

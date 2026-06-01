@@ -1,0 +1,14 @@
+exercise_id,company,part_label,answer,is_given,hint
+ar1,Raintree Cosmetic Co.,Gross A/R at end of 2022 (Net $432 + Allowance $30),462,true,Net A/R + Allowance = Gross A/R
+ar1,Raintree Cosmetic Co.,Gross A/R after adding 2023 credit sales (+$1750),2212,false,462 + 1750
+ar1,Raintree Cosmetic Co.,Gross A/R after cash collections (-$1830),382,false,2212 - 1830
+ar1,Raintree Cosmetic Co.,Gross A/R after write-offs (-$35),347,false,382 - 35
+ar1,Raintree Cosmetic Co.,Required allowance at year-end (10% x $347),34.7,false,$347 x 10%
+ar1,Raintree Cosmetic Co.,Allowance balance before adjustment (started $30 less $35 write-off),-5,false,$30 - $35 = -$5 (debit balance)
+ar1,Raintree Cosmetic Co.,Bad Debt Expense (Required $34.70 minus current balance -$5),39.7,false,$34.70 - (-$5) = $39.70
+ar2,Quick Co.,Gross A/R after credit sales (200 + 2000),2200,false,200 + 2000
+ar2,Quick Co.,Gross A/R after collections (-1800),400,false,2200 - 1800
+ar2,Quick Co.,Gross A/R after write-offs (-40),360,false,400 - 40
+ar2,Quick Co.,Required allowance (5% x 360),18,false,360 x 5%
+ar2,Quick Co.,Allowance balance before adjustment (50 - 40 write-offs),10,false,Starting $50 - $40 written off
+ar2,Quick Co.,Bad Debt Expense (18 - 10),8,false,Required - Current balance

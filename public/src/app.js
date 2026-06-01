@@ -1407,16 +1407,60 @@ if (!window.d3) {
                 classify: '/api/practice/account-classification',
                 balanceSheet: '/api/practice/balance-sheet',
                 statements: '/api/practice/statements',
-                retainedEarnings: '/api/practice/retained-earnings'
+                retainedEarnings: '/api/practice/retained-earnings',
+                arBadDebt: '/api/practice/week2/ar-bad-debt',
+                bondAmortization: '/api/practice/week2/bond-amortization',
+                cashClassification: '/api/practice/week2/cash-classification',
+                depreciation: '/api/practice/week2/depreciation',
+                inventoryAnswers: '/api/practice/week2/inventory-answers',
+                inventoryLayers: '/api/practice/week2/inventory-layers',
+                ppeCapitalization: '/api/practice/week2/ppe-capitalization',
+                revenueCalculations: '/api/practice/week2/revenue-calculations',
+                revenueSteps: '/api/practice/week2/revenue-steps',
+                fsReaderBalanceSheet: '/api/practice/week1/fs-reader-balance-sheet',
+                fsReaderIncomeStatement: '/api/practice/week1/fs-reader-income-statement',
+                fsReaderQuestions: '/api/practice/week1/fs-reader-questions',
+                matchingScenarios: '/api/practice/week1/matching-scenarios',
+                ratioCalculations: '/api/practice/week1/ratio-calculations',
+                revenueScenarios: '/api/practice/week1/revenue-scenarios',
+                warrantyClassifier: '/api/practice/week1/warranty-classifier',
+                week3CommonSize: '/api/practice/week3/common-size',
+                week3CostcoFigures: '/api/practice/week3/costco-key-figures',
+                week3Dupont: '/api/practice/week3/dupont',
+                week3RatioInterpretation: '/api/practice/week3/ratio-interpretation',
+                week3RatioTable: '/api/practice/week3/ratio-table',
+                week3Trend: '/api/practice/week3/trend',
+                week3WalmartFigures: '/api/practice/week3/walmart-key-figures'
             };
 
-            const entries = await Promise.all(Object.entries(sources).map(async ([key, endpoint]) => {
+            const results = await Promise.allSettled(Object.entries(sources).map(async ([key, endpoint]) => {
                 const response = await fetch(endpoint, { cache: 'no-store' });
                 if (!response.ok) throw new Error(`${endpoint} returned ${response.status}`);
                 return [key, rowsToObjects(parseCSVRobust(await response.text()))];
             }));
 
-            return Object.fromEntries(entries);
+            const data = {};
+            const failed = [];
+            results.forEach(result => {
+                if (result.status === 'fulfilled') {
+                    const [key, rows] = result.value;
+                    data[key] = rows;
+                } else {
+                    failed.push(result.reason.message);
+                }
+            });
+
+            const required = ['classify', 'balanceSheet', 'statements', 'retainedEarnings'];
+            const missingRequired = required.filter(key => !data[key]);
+            if (missingRequired.length > 0) {
+                throw new Error(`Missing required practice data: ${missingRequired.join(', ')}`);
+            }
+
+            if (failed.length > 0) {
+                showNotice(`Some optional Week 2 practice data did not load: ${failed.join('; ')}`, true);
+            }
+
+            return data;
         }
 
         function rowsToObjects(rows) {
@@ -1490,7 +1534,288 @@ if (!window.d3) {
                 });
             });
 
+            buildWeekTwoPracticeExercises(data, exercises);
+            buildAccrualPracticeExercises(data, exercises);
+            buildWeekThreePracticeExercises(data, exercises);
+
             return exercises;
+        }
+
+        function buildWeekThreePracticeExercises(data, exercises) {
+            if ((data.week3RatioTable || []).length > 0) {
+                exercises.push({
+                    type: 'ratio_table',
+                    topic: 'Week 3: Ratio Analysis',
+                    title: 'Walmart vs. Costco: compute key ratios.',
+                    subtitle: 'Fill in each ratio for both companies. Use the financial figures shown.',
+                    rows: data.week3RatioTable,
+                    walmartFigures: data.week3WalmartFigures || [],
+                    costcoFigures: data.week3CostcoFigures || []
+                });
+            }
+
+            groupPracticeRows(data.week3Dupont || [], 'exercise_id').forEach(group => {
+                const company = group.rows[0]?.company || 'Company';
+                exercises.push({
+                    type: 'fill_calc',
+                    topic: 'Week 3: Ratio Analysis',
+                    title: `DuPont Analysis: ${company}`,
+                    subtitle: 'ROA = PM x AT | ROE = PM x AT x Equity Multiplier',
+                    scenario: `${company}: complete the DuPont relationship using the provided ratio components.`,
+                    parts: group.rows.map(row => buildCalcPart(row.part_label, row.answer, row.is_given, row.hint))
+                });
+            });
+
+            if ((data.week3CommonSize || []).length > 0) {
+                exercises.push({
+                    type: 'common_size',
+                    topic: 'Week 3: Common-Size & Trend',
+                    title: 'Common-size income statement: Micro Corp.',
+                    subtitle: 'Express each line item as a percentage of revenue for each year.',
+                    rows: data.week3CommonSize
+                });
+            }
+
+            if ((data.week3Trend || []).length > 0) {
+                exercises.push({
+                    type: 'trend_stmt',
+                    topic: 'Week 3: Common-Size & Trend',
+                    title: 'Trend statement: Micro Corp.',
+                    subtitle: 'Express each item as a percentage of the same item in base year 2016.',
+                    rows: data.week3Trend
+                });
+            }
+
+            if ((data.week3RatioInterpretation || []).length > 0) {
+                exercises.push({
+                    type: 'scenario_mcq',
+                    topic: 'Week 3: Ratio Analysis',
+                    title: 'Ratio Interpretation: Walmart vs. Costco',
+                    subtitle: 'Use the calculated ratios to answer interpretation questions.',
+                    rows: buildScenarioRows(data.week3RatioInterpretation)
+                });
+            }
+        }
+
+        function buildAccrualPracticeExercises(data, exercises) {
+            if ((data.revenueScenarios || []).length > 0) {
+                exercises.push({
+                    type: 'scenario_mcq',
+                    topic: 'Accrual: Revenue Recognition',
+                    title: 'Revenue Recognition: Can you record revenue?',
+                    subtitle: 'Decide when revenue can be recognized for each scenario.',
+                    rows: buildScenarioRows(data.revenueScenarios)
+                });
+            }
+
+            if ((data.matchingScenarios || []).length > 0) {
+                exercises.push({
+                    type: 'scenario_mcq',
+                    topic: 'Accrual: Matching Principle',
+                    title: 'Matching Principle: When is the expense recorded?',
+                    subtitle: 'Identify the correct period for each expense scenario.',
+                    rows: buildScenarioRows(data.matchingScenarios)
+                });
+            }
+
+            if ((data.warrantyClassifier || []).length > 0) {
+                exercises.push({
+                    type: 'drag_warranty',
+                    topic: 'Accrual: Matching Principle',
+                    title: 'Classify each warranty.',
+                    subtitle: 'Assurance warranties are matched to sale date; extended warranties are recognized over time.',
+                    rows: data.warrantyClassifier.map(row => ({
+                        item_label: row.item_label,
+                        correct_type: row.correct_type,
+                        hint: row.hint
+                    }))
+                });
+            }
+
+            const hasFinancialStatementReader = (data.fsReaderIncomeStatement || []).length > 0
+                && (data.fsReaderBalanceSheet || []).length > 0
+                && (data.fsReaderQuestions || []).length > 0;
+            if (hasFinancialStatementReader) {
+                exercises.push({
+                    type: 'fs_reader',
+                    topic: 'Financial Statement Analysis',
+                    title: "Read Costco's financial statements.",
+                    subtitle: 'Use the condensed income statement and balance sheet to answer each question.',
+                    data: {
+                        income: data.fsReaderIncomeStatement,
+                        balance: data.fsReaderBalanceSheet,
+                        questions: buildScenarioRows(data.fsReaderQuestions, 'question_text')
+                    }
+                });
+            }
+
+            groupPracticeRows(data.ratioCalculations || [], 'exercise_id').forEach(group => {
+                const first = group.rows[0] || {};
+                exercises.push({
+                    type: 'fill_calc',
+                    topic: 'Financial Statement Analysis',
+                    title: first.title || 'Ratio Calculation',
+                    subtitle: first.formula || 'Calculate the requested ratio.',
+                    scenario: first.scenario || '',
+                    parts: group.rows.map(row => buildCalcPart(row.part_label, row.answer, row.is_given, row.hint))
+                });
+            });
+        }
+
+        function buildScenarioRows(rows, questionKey = 'question') {
+            const letters = ['A', 'B', 'C', 'D'];
+            return rows.map(row => ({
+                context: row.context || '',
+                question: row[questionKey] || row.question || '',
+                options: [row.option_a, row.option_b, row.option_c, row.option_d].filter(Boolean),
+                answer: letters.indexOf(String(row.correct_option || '').trim().toUpperCase()),
+                explanation: row.explanation || ''
+            })).filter(row => row.question && row.options.length > 0 && row.answer >= 0);
+        }
+
+        function buildWeekTwoPracticeExercises(data, exercises) {
+            const revenueSteps = (data.revenueSteps || [])
+                .map(row => ({
+                    order: Number(row.step_number),
+                    label: row.step_title,
+                    detail: row.step_detail
+                }))
+                .filter(row => row.order && row.label);
+
+            if (revenueSteps.length > 0) {
+                exercises.push({
+                    type: 'drag_steps',
+                    topic: 'Revenue Recognition',
+                    title: 'Put the 5 revenue recognition steps in the correct order.',
+                    subtitle: 'Drag each step into its numbered slot.',
+                    rows: revenueSteps
+                });
+            }
+
+            groupPracticeRows(data.revenueCalculations || [], 'exercise_id').forEach(group => {
+                const company = group.rows[0]?.company || 'Revenue Practice';
+                exercises.push({
+                    type: 'fill_calc',
+                    topic: 'Revenue Recognition',
+                    title: `Revenue Recognition: ${company}`,
+                    subtitle: 'Fill in the missing recognized revenue amounts.',
+                    scenario: buildRevenueScenario(group.id, company),
+                    parts: group.rows.map(row => buildCalcPart(row.part_label, row.answer, row.is_given, row.hint))
+                });
+            });
+
+            if ((data.cashClassification || []).length > 0) {
+                exercises.push({
+                    type: 'drag_cash',
+                    topic: 'Cash Classification',
+                    title: 'Classify each item as cash, cash equivalent, restricted cash, or other investment.',
+                    subtitle: 'Cash equivalents mature in 3 months or less when purchased.',
+                    rows: data.cashClassification.map(row => ({
+                        item_label: row.item_label,
+                        correct_category: row.correct_category,
+                        hint: row.hint
+                    }))
+                });
+            }
+
+            groupPracticeRows(data.arBadDebt || [], 'exercise_id').forEach(group => {
+                const company = group.rows[0]?.company || 'A/R Practice';
+                exercises.push({
+                    type: 'fill_calc',
+                    topic: 'A/R & Bad Debt',
+                    title: `A/R & Bad Debt: ${company}`,
+                    subtitle: 'Trace gross A/R, allowance, and bad debt expense.',
+                    scenario: buildArScenario(group.id, company),
+                    parts: group.rows.map(row => buildCalcPart(row.part_label, row.answer, row.is_given, row.hint))
+                });
+            });
+
+            groupPracticeRows(data.inventoryLayers || [], 'exercise_id').forEach(group => {
+                const answers = (data.inventoryAnswers || []).filter(row => row.exercise_id === group.id);
+                exercises.push({
+                    type: 'fill_inventory',
+                    topic: 'Inventory',
+                    title: 'Inventory Costing: FIFO vs. LIFO',
+                    subtitle: 'Calculate COGS and ending inventory under each method.',
+                    scenario: 'Use the available inventory layers below. Assume 8,000 units were sold.',
+                    layers: group.rows,
+                    rows: answers
+                });
+            });
+
+            groupPracticeRows(data.ppeCapitalization || [], 'exercise_id').forEach(group => {
+                exercises.push({
+                    type: 'drag_ppe',
+                    topic: 'PPE & Depreciation',
+                    title: 'Classify each expenditure as land, building, or expense.',
+                    subtitle: 'Only costs needed to acquire and ready the asset for use are capitalized.',
+                    scenario: 'A company purchased land and constructed a building. Classify each expenditure.',
+                    rows: group.rows
+                });
+            });
+
+            groupPracticeRows(data.depreciation || [], 'exercise_id').forEach(group => {
+                const method = group.rows[0]?.method || 'Depreciation';
+                exercises.push({
+                    type: 'fill_calc',
+                    topic: 'PPE & Depreciation',
+                    title: `Depreciation: ${method}`,
+                    subtitle: 'Fill in depreciation amounts and book values.',
+                    scenario: buildDepreciationScenario(group.id, method),
+                    parts: group.rows.map(row => buildCalcPart(row.part_label, row.answer, row.is_given, row.hint))
+                });
+            });
+
+            groupPracticeRows(data.bondAmortization || [], 'exercise_id').forEach(group => {
+                exercises.push({
+                    type: 'fill_bonds',
+                    topic: 'Bonds & Debt',
+                    title: group.id === 'bond2'
+                        ? 'Bond Amortization: Discount Bond'
+                        : 'Bond Amortization: Par Bond',
+                    subtitle: 'Complete the amortization table using effective interest.',
+                    scenario: group.id === 'bond2'
+                        ? 'Zero-coupon bond issued at a discount. Market rate is 10% annually, compounded semiannually.'
+                        : 'Par bond where stated rate equals market rate. Payments are semiannual.',
+                    rows: group.rows
+                });
+            });
+        }
+
+        function buildCalcPart(label, answer, isGiven, hint) {
+            return {
+                label,
+                answer: Number(answer),
+                given: String(isGiven || '').toLowerCase() === 'true',
+                hint
+            };
+        }
+
+        function buildRevenueScenario(id, company) {
+            if (id === 'rev1') {
+                return `${company} sold 1,000 bundled phones at $800 each. Hardware is 60% and recognized at sale; software is 40% and recognized over 2 years. The sale occurred October 1, 2024.`;
+            }
+            if (id === 'rev2') {
+                return `${company} sold 500 annual subscriptions for $120 each starting July 1, 2024. Recognize revenue for the months of service provided in 2024.`;
+            }
+            return `Complete the revenue recognition calculations for ${company}.`;
+        }
+
+        function buildArScenario(id, company) {
+            if (id === 'ar1') {
+                return `${company}: beginning net A/R is $432 with a $30 allowance. Credit sales are $1,750, collections are $1,830, write-offs are $35, and required allowance is 10% of ending gross A/R.`;
+            }
+            return `${company}: use the given A/R activity to compute ending gross A/R, required allowance, and bad debt expense.`;
+        }
+
+        function buildDepreciationScenario(id, method) {
+            if (id === 'dep1') {
+                return 'Asset cost is $50,000, salvage value is $5,000, and useful life is 5 years.';
+            }
+            if (id === 'dep2') {
+                return 'Asset cost is $40,000, useful life is 4 years, and the method is double-declining-balance.';
+            }
+            return `Complete the ${method} depreciation calculations.`;
         }
 
         function groupPracticeRows(rows, key) {
@@ -1514,10 +1839,10 @@ if (!window.d3) {
             sidebarContent.innerHTML = `
                 <div class="practice-nav">
                     <div class="practice-tools">
-                        <button id="practice-reset" class="practice-tool-button" type="button">Reset</button>
+                        <button id="practice-reset" class="practice-tool-button" type="button">${practiceFinished ? 'Restart' : 'Reset'}</button>
                         <button id="practice-hint" class="practice-tool-button" type="button">Hint</button>
-                        <button id="practice-check" class="practice-tool-button" type="button">Check</button>
-                        <button id="practice-next-side" class="practice-tool-button" type="button">Next &rarr;</button>
+                        <button id="practice-check" class="practice-tool-button" type="button" ${practiceFinished ? 'disabled' : ''}>Check</button>
+                        <button id="practice-next-side" class="practice-tool-button" type="button" ${practiceFinished ? 'disabled' : ''}>Next &rarr;</button>
                     </div>
                     <div class="practice-topic-label">Exercise Type</div>
                     ${topics.map(topic => {
@@ -1532,7 +1857,7 @@ if (!window.d3) {
                 </div>
             `;
 
-            document.getElementById('practice-reset').addEventListener('click', resetPracticeExercise);
+            document.getElementById('practice-reset').addEventListener('click', practiceFinished ? restartPractice : resetPracticeExercise);
             document.getElementById('practice-hint').addEventListener('click', showPracticeHint);
             document.getElementById('practice-check').addEventListener('click', checkPracticeAnswers);
             document.getElementById('practice-next-side').addEventListener('click', nextPracticeExercise);
@@ -1553,13 +1878,10 @@ if (!window.d3) {
         function renderPracticeExercise() {
             const exercise = activePracticeExercises[practiceIndex];
             if (!exercise) return;
-            if (practiceFinished) {
-                renderPracticeScore();
-                return;
-            }
 
             const buttonLabel = practiceIndex >= activePracticeExercises.length - 1 ? 'Finish' : 'Next';
             const checked = !!exercise._checked;
+            const locked = practiceFinished || checked;
 
             container.innerHTML = `
                 <div class="practice-shell">
@@ -1583,8 +1905,9 @@ if (!window.d3) {
                         </div>
                         <div class="practice-score">Score: <strong id="practice-score-correct">${practiceScoreCorrect}</strong> / <span id="practice-score-total">${practiceScoreTotal}</span></div>
                         <div class="practice-footer-group">
-                            <button id="practice-footer-check" class="practice-button" type="button" ${checked ? 'disabled' : ''}>Check</button>
-                            <button id="practice-next" class="practice-button primary" type="button">${buttonLabel}</button>
+                            <button id="practice-footer-check" class="practice-button" type="button" ${locked ? 'disabled' : ''}>Check</button>
+                            <button id="practice-next" class="practice-button primary" type="button" ${practiceFinished ? 'disabled' : ''}>${buttonLabel}</button>
+                            ${practiceFinished ? '<button id="practice-restart-inline" class="practice-button primary" type="button">Restart</button>' : ''}
                         </div>
                     </div>
                 </div>
@@ -1606,12 +1929,42 @@ if (!window.d3) {
             if (exercise.type === 'fill_is') renderPracticeStatement(body, exercise, false);
             if (exercise.type === 'fill_cf') renderPracticeStatement(body, exercise, true);
             if (exercise.type === 'fill_re') renderPracticeRetainedEarnings(body, exercise);
-            if (checked) showCheckedPracticeResult(exercise);
+            if (exercise.type === 'drag_steps') renderPracticeSteps(body, exercise);
+            if (exercise.type === 'fill_calc') renderPracticeCalculation(body, exercise);
+            if (exercise.type === 'drag_cash') renderPracticeDrag(body, exercise, [
+                { id: 'cash', label: 'Cash', sub: 'Currency, checking, and savings balances' },
+                { id: 'cashequivalent', label: 'Cash Equivalent', sub: 'Highly liquid investments with maturity of 3 months or less' },
+                { id: 'restrictedcash', label: 'Restricted Cash', sub: 'Cash legally unavailable for current operations' },
+                { id: 'otherinvestment', label: 'Other Investment', sub: 'Longer maturity investments and equity holdings' }
+            ], row => row.correct_category);
+            if (exercise.type === 'drag_ppe') renderPracticeScenarioDrag(body, exercise, [
+                { id: 'land', label: 'Land', sub: 'Acquire and prepare the land site' },
+                { id: 'building', label: 'Building', sub: 'Construct and ready the building' },
+                { id: 'expense', label: 'Expense', sub: 'Period costs, repairs, and maintenance' }
+            ], row => row.correct_category);
+            if (exercise.type === 'fill_inventory') renderPracticeInventory(body, exercise);
+            if (exercise.type === 'fill_bonds') renderPracticeBonds(body, exercise);
+            if (exercise.type === 'scenario_mcq') renderPracticeScenarioMcq(body, exercise);
+            if (exercise.type === 'drag_warranty') renderPracticeDrag(body, exercise, [
+                { id: 'assurancewarranty', label: 'Assurance Warranty', sub: 'Included in sale price and matched to sale date' },
+                { id: 'extendedwarranty', label: 'Extended Warranty', sub: 'Separately purchased and recognized over the warranty period' }
+            ], row => row.correct_type);
+            if (exercise.type === 'fs_reader') renderPracticeFinancialStatementReader(body, exercise);
+            if (exercise.type === 'ratio_table') renderPracticeRatioTable(body, exercise);
+            if (exercise.type === 'common_size') renderPracticeCommonSize(body, exercise);
+            if (exercise.type === 'trend_stmt') renderPracticeTrendStatement(body, exercise);
+            restorePracticeResponses(exercise);
+            if (checked) {
+                markPracticeAnswers(exercise);
+                showCheckedPracticeResult(exercise);
+            }
 
             document.getElementById('practice-prev').addEventListener('click', previousPracticeExercise);
             document.getElementById('practice-footer-hint').addEventListener('click', showPracticeHint);
             document.getElementById('practice-footer-check').addEventListener('click', checkPracticeAnswers);
             document.getElementById('practice-next').addEventListener('click', nextPracticeExercise);
+            const restartButton = document.getElementById('practice-restart-inline');
+            if (restartButton) restartButton.addEventListener('click', restartPractice);
         }
 
         function renderPracticeClassify(body, exercise, answerKey, options) {
@@ -1656,7 +2009,10 @@ if (!window.d3) {
                 chip.className = 'practice-chip';
                 chip.id = `practice-chip-${idx}`;
                 chip.draggable = true;
-                chip.dataset.correct = normalizePracticeKey(answerGetter(row));
+                chip.dataset.itemIndex = String(idx);
+                const correctLabel = answerGetter(row);
+                chip.dataset.correct = normalizePracticeKey(correctLabel);
+                chip.dataset.correctLabel = correctLabel;
                 chip.textContent = row.item_label ? `${row.item_label}${row.amount ? ` $${row.amount}` : ''}` : row.label;
                 chip.addEventListener('dragstart', () => {
                     practiceDraggedEl = chip;
@@ -1764,22 +2120,427 @@ if (!window.d3) {
             body.appendChild(card);
         }
 
-        function checkPracticeAnswers() {
-            const exercise = activePracticeExercises[practiceIndex];
-            if (exercise._checked) {
-                showCheckedPracticeResult(exercise);
+        function renderPracticeSteps(body, exercise) {
+            const layout = document.createElement('div');
+            layout.className = 'practice-step-grid';
+
+            const poolCol = document.createElement('div');
+            poolCol.innerHTML = '<div class="practice-pool-label">Steps - drag into order</div>';
+            const pool = document.createElement('div');
+            pool.className = 'practice-pool';
+            attachPracticeDrop(pool);
+
+            const shuffled = [...exercise.rows].sort((a, b) => {
+                const seed = (a.order * 17) % 11;
+                return seed - ((b.order * 17) % 11);
+            });
+
+            shuffled.forEach(step => {
+                const item = document.createElement('div');
+                item.className = 'practice-chip practice-step-chip';
+                item.draggable = true;
+                item.dataset.itemIndex = String(step.order);
+                item.dataset.correct = String(step.order);
+                item.dataset.correctLabel = `Step ${step.order}`;
+                item.textContent = step.label;
+                item.addEventListener('dragstart', () => {
+                    practiceDraggedEl = item;
+                    item.classList.add('dragging');
+                });
+                item.addEventListener('dragend', () => item.classList.remove('dragging'));
+                pool.appendChild(item);
+            });
+
+            poolCol.appendChild(pool);
+
+            const slotsCol = document.createElement('div');
+            slotsCol.innerHTML = '<div class="practice-pool-label">Correct Order</div>';
+            exercise.rows.forEach(step => {
+                const slot = document.createElement('div');
+                slot.className = 'practice-step-slot practice-drop-zone';
+                slot.dataset.zone = String(step.order);
+                slot.innerHTML = `<div class="practice-step-number">Step ${step.order}</div><div class="practice-drop-sub">${escapeHTML(step.detail)}</div>`;
+                attachPracticeSingleDrop(slot, pool);
+                slotsCol.appendChild(slot);
+            });
+
+            layout.appendChild(poolCol);
+            layout.appendChild(slotsCol);
+            body.appendChild(layout);
+        }
+
+        function attachPracticeSingleDrop(zone, pool) {
+            zone.addEventListener('dragover', event => {
+                event.preventDefault();
+                zone.classList.add('drag-over');
+            });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+            zone.addEventListener('drop', event => {
+                event.preventDefault();
+                zone.classList.remove('drag-over');
+                if (!practiceDraggedEl) return;
+                const existing = zone.querySelector('.practice-chip');
+                if (existing) pool.appendChild(existing);
+                zone.appendChild(practiceDraggedEl);
+                practiceDraggedEl = null;
+            });
+        }
+
+        function renderPracticeCalculation(body, exercise) {
+            if (exercise.scenario) {
+                const scenario = document.createElement('div');
+                scenario.className = 'practice-scenario';
+                scenario.textContent = exercise.scenario;
+                body.appendChild(scenario);
+            }
+
+            const card = document.createElement('div');
+            card.className = 'practice-re-card practice-calc-card';
+            exercise.parts.forEach((part, idx) => {
+                const row = document.createElement('div');
+                row.className = 'practice-re-row';
+                const answer = Number(part.answer);
+                if (part.given) {
+                    row.innerHTML = `<span>${escapeHTML(part.label)}</span><span style="font-variant-numeric:tabular-nums;font-weight:700">${formatPracticeNumber(answer)}</span>`;
+                } else {
+                    row.innerHTML = `<span>${escapeHTML(part.label)}</span><input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(answer)}" data-hint="${escapeHTML(part.hint || '')}">`;
+                }
+                card.appendChild(row);
+            });
+            body.appendChild(card);
+        }
+
+        function renderPracticeScenarioDrag(body, exercise, zones, answerGetter) {
+            if (exercise.scenario) {
+                const scenario = document.createElement('div');
+                scenario.className = 'practice-scenario';
+                scenario.textContent = exercise.scenario;
+                body.appendChild(scenario);
+            }
+            renderPracticeDrag(body, exercise, zones, answerGetter);
+        }
+
+        function renderPracticeInventory(body, exercise) {
+            const scenario = document.createElement('div');
+            scenario.className = 'practice-scenario';
+            scenario.textContent = exercise.scenario;
+            body.appendChild(scenario);
+
+            const table = document.createElement('table');
+            table.className = 'practice-table';
+            const totalUnits = exercise.layers.reduce((sum, row) => sum + Number(row.units || 0), 0);
+            const totalCost = exercise.layers.reduce((sum, row) => sum + Number(row.total_cost || 0), 0);
+            table.innerHTML = `
+                <tr class="section-header"><td>Layer</td><td class="row-value">Units</td><td class="row-value">Unit Cost</td><td class="row-value">Total</td></tr>
+                ${exercise.layers.map(row => `
+                    <tr>
+                        <td>${escapeHTML(row.layer_label)}</td>
+                        <td class="row-value">${formatPracticeNumber(row.units)}</td>
+                        <td class="row-value">${formatPracticeNumber(row.unit_cost)}</td>
+                        <td class="row-value">${formatPracticeNumber(row.total_cost)}</td>
+                    </tr>
+                `).join('')}
+                <tr class="subtotal"><td>Goods Available for Sale</td><td class="row-value">${formatPracticeNumber(totalUnits)}</td><td></td><td class="row-value">${formatPracticeNumber(totalCost)}</td></tr>
+            `;
+            body.appendChild(table);
+
+            ['Summary', 'FIFO', 'LIFO'].forEach(method => {
+                const rows = exercise.rows.filter(row => row.method === method);
+                if (rows.length === 0) return;
+                const card = document.createElement('div');
+                card.className = 'practice-re-card practice-calc-card';
+                card.innerHTML = `<div class="practice-drop-label">${escapeHTML(method)}</div>`;
+                rows.forEach(row => {
+                    const item = document.createElement('div');
+                    item.className = 'practice-re-row';
+                    item.innerHTML = `<span>${escapeHTML(row.line_label)}</span><input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(row.answer)}" data-hint="${escapeHTML(row.hint || '')}">`;
+                    card.appendChild(item);
+                });
+                body.appendChild(card);
+            });
+        }
+
+        function renderPracticeBonds(body, exercise) {
+            const scenario = document.createElement('div');
+            scenario.className = 'practice-scenario';
+            scenario.textContent = exercise.scenario;
+            body.appendChild(scenario);
+
+            const table = document.createElement('table');
+            table.className = 'practice-table practice-bond-table';
+            table.innerHTML = '<tr class="section-header"><td>Date</td><td class="row-value">Cash Payment</td><td class="row-value">Interest Expense</td><td class="row-value">Balance</td></tr>';
+            exercise.rows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHTML(row.date)}</td>
+                    <td class="row-value">${renderPracticeBondCell(row.cash_payment, row.cash_is_blank, row.notes)}</td>
+                    <td class="row-value">${renderPracticeBondCell(row.interest_expense, row.interest_is_blank, row.notes)}</td>
+                    <td class="row-value">${renderPracticeBondCell(row.outstanding_balance, row.balance_is_blank, row.notes)}</td>
+                `;
+                table.appendChild(tr);
+            });
+            body.appendChild(table);
+        }
+
+        function renderPracticeScenarioMcq(body, exercise) {
+            exercise.rows.forEach((row, idx) => {
+                const card = document.createElement('div');
+                card.className = 'practice-mcq-card';
+                card.innerHTML = `
+                    ${row.context ? `<div class="practice-scenario">${escapeHTML(row.context)}</div>` : ''}
+                    <div class="practice-card-label">${escapeHTML(row.question)}</div>
+                    <div class="practice-options">
+                        ${row.options.map((option, optionIdx) => `
+                            <button class="practice-option" type="button" data-row="${idx}" data-value="${optionIdx}">${escapeHTML(option)}</button>
+                        `).join('')}
+                    </div>
+                    <div class="practice-explanation" id="practice-explain-${idx}">${escapeHTML(row.explanation)}</div>
+                `;
+                body.appendChild(card);
+            });
+
+            body.querySelectorAll('.practice-option').forEach(button => {
+                button.addEventListener('click', event => {
+                    const row = exercise.rows[Number(event.currentTarget.dataset.row)];
+                    row._selected = Number(event.currentTarget.dataset.value);
+                    event.currentTarget.closest('.practice-options').querySelectorAll('.practice-option').forEach(item => item.classList.remove('selected'));
+                    event.currentTarget.classList.add('selected');
+                });
+            });
+        }
+
+        function renderPracticeFinancialStatementReader(body, exercise) {
+            const grid = document.createElement('div');
+            grid.className = 'practice-fs-grid';
+            grid.appendChild(buildPracticeStatementPanel('Income Statement', 'Costco Wholesale, 2023, in millions', exercise.data.income));
+            grid.appendChild(buildPracticeStatementPanel('Balance Sheet', 'Costco Wholesale, Sept. 3, 2023, in millions', exercise.data.balance));
+            body.appendChild(grid);
+
+            const label = document.createElement('div');
+            label.className = 'practice-pool-label';
+            label.textContent = 'Answer using the statements above';
+            body.appendChild(label);
+
+            const questionExercise = {
+                ...exercise,
+                rows: exercise.data.questions
+            };
+            renderPracticeScenarioMcq(body, questionExercise);
+        }
+
+        function buildPracticeStatementPanel(title, subtitle, rows) {
+            const panel = document.createElement('div');
+            panel.className = 'practice-fs-panel';
+            panel.innerHTML = `<div class="practice-drop-label">${escapeHTML(title)}</div><div class="practice-drop-sub">${escapeHTML(subtitle)}</div>`;
+            rows.forEach(row => {
+                const line = document.createElement('div');
+                line.className = [
+                    'practice-fs-line',
+                    row.is_indent === 'true' ? 'indent' : '',
+                    row.is_total === 'true' ? 'total' : '',
+                    row.is_section === 'true' ? 'section' : ''
+                ].filter(Boolean).join(' ');
+                line.innerHTML = `<span>${escapeHTML(row.line_label)}</span><span>${escapeHTML(row.value || '')}</span>`;
+                panel.appendChild(line);
+            });
+            return panel;
+        }
+
+        function renderPracticeRatioTable(body, exercise) {
+            const grid = document.createElement('div');
+            grid.className = 'practice-fs-grid';
+            grid.appendChild(buildPracticeFiguresPanel('Walmart Key Figures', exercise.walmartFigures));
+            grid.appendChild(buildPracticeFiguresPanel('Costco Key Figures', exercise.costcoFigures));
+            body.appendChild(grid);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'practice-table-wrap';
+            const table = document.createElement('table');
+            table.className = 'practice-table practice-wide-table';
+            table.innerHTML = '<tr class="section-header"><td>Ratio</td><td>Formula</td><td class="row-value">Walmart</td><td class="row-value">Costco</td></tr>';
+            let category = '';
+            exercise.rows.forEach((row, idx) => {
+                if (row.category !== category) {
+                    const header = document.createElement('tr');
+                    header.className = 'section-header';
+                    header.innerHTML = `<td colspan="4">${escapeHTML(row.category)} Ratios</td>`;
+                    table.appendChild(header);
+                    category = row.category;
+                }
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${escapeHTML(row.ratio_label)}</strong></td>
+                    <td class="practice-formula">${escapeHTML(row.formula)}</td>
+                    <td class="row-value"><input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(row.wmt_answer)}" data-hint="${escapeHTML(row.wmt_hint || '')}"></td>
+                    <td class="row-value"><input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(row.cst_answer)}" data-hint="${escapeHTML(row.cst_hint || '')}"></td>
+                `;
+                table.appendChild(tr);
+            });
+            wrap.appendChild(table);
+            body.appendChild(wrap);
+
+            const note = document.createElement('div');
+            note.className = 'practice-drop-sub';
+            note.textContent = 'Enter percentages as percentages, e.g. 6.6 not 0.066. Enter turnover/multiplier as x values and days ratios as days.';
+            body.appendChild(note);
+        }
+
+        function buildPracticeFiguresPanel(title, rows) {
+            const panel = document.createElement('div');
+            panel.className = 'practice-fs-panel';
+            panel.innerHTML = `<div class="practice-drop-label">${escapeHTML(title)}</div><div class="practice-drop-sub">Amounts in millions unless noted</div>`;
+            rows.forEach(row => {
+                const line = document.createElement('div');
+                line.className = 'practice-fs-line indent';
+                line.innerHTML = `<span>${escapeHTML(row.figure_label)}</span><span>${formatPracticeNumber(row.value)}</span>`;
+                panel.appendChild(line);
+            });
+            return panel;
+        }
+
+        function renderPracticeCommonSize(body, exercise) {
+            const scenario = document.createElement('div');
+            scenario.className = 'practice-scenario';
+            scenario.textContent = 'Micro Corporation: divide each line item by revenue for that year. Revenue equals 100%. Enter whole-number percentages.';
+            body.appendChild(scenario);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'practice-table-wrap';
+            const table = document.createElement('table');
+            table.className = 'practice-table practice-wide-table';
+            table.innerHTML = '<tr class="section-header"><td>Line Item</td><td class="row-value">2018</td><td class="row-value">% 2018</td><td class="row-value">2017</td><td class="row-value">% 2017</td><td class="row-value">2016</td><td class="row-value">% 2016</td></tr>';
+            exercise.rows.forEach(row => {
+                const tr = document.createElement('tr');
+                if (row.is_subtotal === 'true') tr.className = 'subtotal';
+                const makePctCell = (value, pct) => {
+                    if (row.is_blank === 'true') {
+                        return `<input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(pct)}" data-hint="${escapeHTML(`${value} / revenue x 100 = ${pct}%`)}">`;
+                    }
+                    return `${escapeHTML(pct)}%`;
+                };
+                tr.innerHTML = `
+                    <td>${escapeHTML(row.line_label)}</td>
+                    <td class="row-value">${formatPracticeNumber(row.val_2018)}</td>
+                    <td class="row-value">${makePctCell(row.val_2018, row.pct_2018)}</td>
+                    <td class="row-value">${formatPracticeNumber(row.val_2017)}</td>
+                    <td class="row-value">${makePctCell(row.val_2017, row.pct_2017)}</td>
+                    <td class="row-value">${formatPracticeNumber(row.val_2016)}</td>
+                    <td class="row-value">${makePctCell(row.val_2016, row.pct_2016)}</td>
+                `;
+                table.appendChild(tr);
+            });
+            wrap.appendChild(table);
+            body.appendChild(wrap);
+        }
+
+        function renderPracticeTrendStatement(body, exercise) {
+            const scenario = document.createElement('div');
+            scenario.className = 'practice-scenario';
+            scenario.textContent = 'Micro Corporation: base year 2016 equals 100%. Calculate each trend percentage as year value divided by 2016 value times 100.';
+            body.appendChild(scenario);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'practice-table-wrap';
+            const table = document.createElement('table');
+            table.className = 'practice-table practice-wide-table';
+            table.innerHTML = '<tr class="section-header"><td>Line Item</td><td class="row-value">2018</td><td class="row-value">Trend 2018</td><td class="row-value">2017</td><td class="row-value">Trend 2017</td><td class="row-value">2016</td><td class="row-value">Base</td></tr>';
+            exercise.rows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHTML(row.line_label)}</td>
+                    <td class="row-value">${formatPracticeNumber(row.val_2018)}</td>
+                    <td class="row-value"><input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(row.trend_2018)}" data-hint="${escapeHTML(`${row.val_2018} / ${row.val_2016} x 100 = ${row.trend_2018}`)}"></td>
+                    <td class="row-value">${formatPracticeNumber(row.val_2017)}</td>
+                    <td class="row-value"><input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(row.trend_2017)}" data-hint="${escapeHTML(`${row.val_2017} / ${row.val_2016} x 100 = ${row.trend_2017}`)}"></td>
+                    <td class="row-value">${formatPracticeNumber(row.val_2016)}</td>
+                    <td class="row-value">100%</td>
+                `;
+                table.appendChild(tr);
+            });
+            wrap.appendChild(table);
+            body.appendChild(wrap);
+        }
+
+        function renderPracticeBondCell(value, isBlank, hint) {
+            if (String(isBlank || '').toLowerCase() === 'true') {
+                return `<input class="practice-input" type="number" step="0.01" placeholder="?" data-answer="${escapeHTML(value)}" data-hint="${escapeHTML(hint || '')}">`;
+            }
+            return formatPracticeNumber(value);
+        }
+
+        function formatPracticeNumber(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return escapeHTML(value);
+            return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function persistPracticeResponses(exercise) {
+            if (exercise.type === 'classify_type' || exercise.type === 'classify_stmt' || exercise.type === 'scenario_mcq' || exercise.type === 'fs_reader') {
+                const rows = exercise.type === 'fs_reader' ? exercise.data.questions : exercise.rows;
                 return;
             }
 
-            const result = scorePracticeExercise(exercise, true);
+            const inputs = Array.from(document.querySelectorAll('.practice-input'));
+            if (inputs.length > 0) {
+                exercise._inputValues = inputs.map(input => input.value);
+            }
 
-            exercise._checked = true;
-            exercise._scoreCorrect = result.correct;
-            exercise._scoreTotal = result.total;
+            const chips = Array.from(document.querySelectorAll('.practice-chip'));
+            if (chips.length > 0) {
+                exercise._dragPlacements = {};
+                chips.forEach(chip => {
+                    const zone = chip.closest('.practice-drop-zone');
+                    exercise._dragPlacements[chip.dataset.itemIndex] = zone ? zone.dataset.zone : '';
+                });
+            }
+        }
+
+        function restorePracticeResponses(exercise) {
+            if (exercise.type === 'classify_type' || exercise.type === 'classify_stmt' || exercise.type === 'scenario_mcq' || exercise.type === 'fs_reader') {
+                const rows = exercise.type === 'fs_reader' ? exercise.data.questions : exercise.rows;
+                rows.forEach((row, idx) => {
+                    if (!row._selected) return;
+                    document.querySelectorAll(`.practice-option[data-row="${idx}"]`).forEach(button => {
+                        if (String(button.dataset.value) === String(row._selected)) button.classList.add('selected');
+                    });
+                });
+            }
+
+            if (exercise._inputValues) {
+                document.querySelectorAll('.practice-input').forEach((input, idx) => {
+                    input.value = exercise._inputValues[idx] || '';
+                });
+            }
+
+            if (exercise._dragPlacements) {
+                document.querySelectorAll('.practice-chip').forEach(chip => {
+                    const zoneKey = exercise._dragPlacements[chip.dataset.itemIndex];
+                    if (!zoneKey) return;
+                    const zone = document.querySelector(`.practice-drop-zone[data-zone="${cssEscape(zoneKey)}"]`);
+                    if (zone) zone.appendChild(chip);
+                });
+            }
+        }
+
+        function markPracticeAnswers(exercise) {
+            scorePracticeExercise(exercise, true);
+        }
+
+        function checkPracticeAnswers() {
+            const exercise = activePracticeExercises[practiceIndex];
+            persistPracticeResponses(exercise);
+
+            if (!exercise._checked) {
+                const result = scorePracticeExercise(exercise, true);
+                exercise._checked = true;
+                exercise._scoreCorrect = result.correct;
+                exercise._scoreTotal = result.total;
+            }
+
+            finalizePracticeSet();
             updatePracticeScore();
-            showCheckedPracticeResult(exercise);
-            const checkButton = document.getElementById('practice-footer-check');
-            if (checkButton) checkButton.disabled = true;
+            renderPracticeSidebar();
+            renderPracticeExercise();
         }
 
         function scorePracticeExercise(exercise, markAnswers = false) {
@@ -1800,7 +2561,25 @@ if (!window.d3) {
                         if (markAnswers) button.disabled = true;
                     });
                 });
-            } else if (exercise.type === 'drag_bs' || exercise.type === 'drag_cf') {
+            } else if (exercise.type === 'scenario_mcq' || exercise.type === 'fs_reader') {
+                const rows = exercise.type === 'fs_reader' ? exercise.data.questions : exercise.rows;
+                rows.forEach((row, idx) => {
+                    total++;
+                    document.querySelectorAll(`.practice-option[data-row="${idx}"]`).forEach(button => {
+                        const optionIdx = Number(button.dataset.value);
+                        const isAnswer = optionIdx === row.answer;
+                        const isSelection = optionIdx === row._selected;
+                        if (markAnswers && isAnswer) button.classList.add('correct');
+                        if (markAnswers && isSelection && !isAnswer) button.classList.add('wrong');
+                        if (isSelection && isAnswer) correct++;
+                        if (markAnswers) button.disabled = true;
+                    });
+                    if (markAnswers) {
+                        const explanation = document.getElementById(`practice-explain-${idx}`);
+                        if (explanation) explanation.classList.add('visible');
+                    }
+                });
+            } else if (['drag_bs', 'drag_cf', 'drag_cash', 'drag_ppe', 'drag_steps', 'drag_warranty'].includes(exercise.type)) {
                 document.querySelectorAll('.practice-chip').forEach(chip => {
                     const zone = chip.closest('.practice-drop-zone');
                     total++;
@@ -1808,7 +2587,16 @@ if (!window.d3) {
                         correct++;
                         if (markAnswers) chip.classList.add('correct');
                     } else {
-                        if (markAnswers) chip.classList.add('wrong');
+                        if (markAnswers) {
+                            chip.classList.add('wrong');
+                            chip.title = `Correct: ${chip.dataset.correctLabel || chip.dataset.correct}`;
+                            if (!chip.querySelector('.practice-answer-reveal')) {
+                                const reveal = document.createElement('span');
+                                reveal.className = 'practice-answer-reveal';
+                                reveal.textContent = `Correct: ${chip.dataset.correctLabel || chip.dataset.correct}`;
+                                chip.appendChild(reveal);
+                            }
+                        }
                     }
                 });
             } else {
@@ -1817,7 +2605,7 @@ if (!window.d3) {
                     const expected = Number(input.dataset.answer);
                     const hasValue = input.value.trim() !== '';
                     const actual = Number(input.value);
-                    const tolerance = Math.abs(expected) < 1 ? 0.01 : 0.5;
+                    const tolerance = Math.abs(expected) < 2 ? 0.05 : Math.abs(expected) < 100 ? 0.5 : 1;
                     if (hasValue && Math.abs(actual - expected) <= tolerance) {
                         correct++;
                         if (markAnswers) {
@@ -1828,6 +2616,12 @@ if (!window.d3) {
                         if (markAnswers) {
                             input.classList.add('wrong');
                             input.classList.remove('correct');
+                            if (!input.parentElement.querySelector('.practice-answer-reveal')) {
+                                const reveal = document.createElement('span');
+                                reveal.className = 'practice-answer-reveal';
+                                reveal.textContent = `Answer: ${formatPracticeNumber(expected)}`;
+                                input.parentElement.appendChild(reveal);
+                            }
                         }
                     }
                 });
@@ -1841,7 +2635,7 @@ if (!window.d3) {
             const correct = exercise._scoreCorrect || 0;
             const total = exercise._scoreTotal || 0;
             feedback.className = `practice-feedback show ${correct === total ? 'correct' : 'info'}`;
-            feedback.textContent = `${correct} of ${total} correct.${correct === total ? ' Great job!' : ' Green marks the correct answer; red marks a wrong selection.'}`;
+            feedback.textContent = `${correct} of ${total} correct.${practiceFinished ? ' Practice is finished; unattempted exercises are counted in the total score.' : ''}${correct === total ? ' Great job!' : ' Green marks the correct answer; red marks a wrong selection.'}`;
         }
 
         function updatePracticeScore() {
@@ -1859,6 +2653,69 @@ if (!window.d3) {
             const totalEl = document.getElementById('practice-score-total');
             if (correctEl) correctEl.textContent = practiceScoreCorrect;
             if (totalEl) totalEl.textContent = practiceScoreTotal;
+        }
+
+        function finalizePracticeSet() {
+            activePracticeExercises.forEach(exercise => {
+                if (exercise._checked) return;
+                exercise._checked = true;
+                exercise._scoreCorrect = 0;
+                exercise._scoreTotal = countPracticePoints(exercise);
+            });
+            practiceFinished = true;
+        }
+
+        function countPracticePoints(exercise) {
+            if (exercise.type === 'classify_type' || exercise.type === 'classify_stmt') {
+                return (exercise.rows || []).length;
+            }
+
+            if (exercise.type === 'scenario_mcq') {
+                return (exercise.rows || []).length;
+            }
+
+            if (exercise.type === 'fs_reader') {
+                return (exercise.data?.questions || []).length;
+            }
+
+            if (['drag_bs', 'drag_cf', 'drag_cash', 'drag_ppe', 'drag_steps', 'drag_warranty'].includes(exercise.type)) {
+                return (exercise.rows || []).length;
+            }
+
+            if (exercise.type === 'fill_calc') {
+                return (exercise.parts || []).filter(part => !part.given).length;
+            }
+
+            if (exercise.type === 'ratio_table') {
+                return (exercise.rows || []).length * 2;
+            }
+
+            if (exercise.type === 'common_size') {
+                return (exercise.rows || []).filter(row => row.is_blank === 'true').length * 3;
+            }
+
+            if (exercise.type === 'trend_stmt') {
+                return (exercise.rows || []).length * 2;
+            }
+
+            if (exercise.type === 'fill_inventory') {
+                return (exercise.rows || []).length;
+            }
+
+            if (exercise.type === 'fill_bonds') {
+                return (exercise.rows || []).reduce((sum, row) => {
+                    return sum
+                        + (String(row.cash_is_blank || '').toLowerCase() === 'true' ? 1 : 0)
+                        + (String(row.interest_is_blank || '').toLowerCase() === 'true' ? 1 : 0)
+                        + (String(row.balance_is_blank || '').toLowerCase() === 'true' ? 1 : 0);
+                }, 0);
+            }
+
+            if (exercise.type === 'fill_is' || exercise.type === 'fill_cf' || exercise.type === 'fill_re') {
+                return (exercise.rows || []).filter(row => String(row.is_blank || '').toLowerCase() === 'true').length;
+            }
+
+            return 0;
         }
 
         function renderPracticeScore() {
@@ -1893,16 +2750,32 @@ if (!window.d3) {
                 classify_type: "Assets are owned resources. Liabilities are obligations. Equity is owners' claim. Revenue is income earned. Expenses are costs. Gains and losses are outside normal operations.",
                 classify_stmt: 'Assets, liabilities, and equity belong on the balance sheet. Revenues, expenses, gains, and losses belong on the income statement.',
                 drag_bs: 'Assets are ordered by liquidity; liabilities are ordered by maturity; equity has no required order here.',
+                drag_cf: 'Operating covers day-to-day operations, investing covers long-term assets, and financing covers debt, stock, and dividends.',
                 fill_is: 'Gross Profit = Revenue - COGS. Operating Income = Gross Profit - operating expenses. Net Income = income before taxes - tax expense.',
                 fill_cf: 'Operating cash flow starts with net income, then adjusts for non-cash items and working capital. Investing is long-term assets. Financing is debt, stock, and dividends.',
-                fill_re: 'Ending balance = beginning balance + additions - reductions.'
+                fill_re: 'Ending balance = beginning balance + additions - reductions.',
+                drag_steps: 'The five steps are: identify contract, identify performance obligations, determine transaction price, allocate price, recognize revenue.',
+                fill_calc: 'Use the scenario to build each amount from the prior line. Pay attention to percentages, time periods, and balances before adjustment.',
+                drag_cash: 'Cash is currency and bank balances. Cash equivalents are highly liquid investments maturing in 3 months or less. Restricted cash is reported separately.',
+                fill_inventory: 'FIFO sells oldest units first. LIFO sells newest units first. Ending inventory contains the layers not sold.',
+                drag_ppe: 'Capitalize costs needed to acquire and prepare the asset. Expense future-period taxes, repairs, and routine maintenance.',
+                fill_bonds: 'Cash payment uses the stated rate. Interest expense uses the market rate times carrying value. Discount bond balances increase toward face value.',
+                scenario_mcq: 'Revenue needs both performance obligation satisfied and collection probable. Expenses are recorded in the period they help generate revenue.',
+                drag_warranty: 'Assurance warranty is part of the original product sale. Extended warranty is a separate service obligation recognized over time.',
+                fs_reader: 'Net means something was subtracted. Deferred means cash received but not earned. Accrued means earned or incurred but not yet paid.',
+                ratio_table: 'Use average balance sheet figures for ROA, ROE, A/R days, inventory days, and payables days. Enter percentages as whole percentages.',
+                common_size: 'Common-size means each line divided by revenue for that year times 100. Revenue is 100% by definition.',
+                trend_stmt: 'Trend analysis means each line divided by the same line in the base year times 100. Here 2016 is the base year.'
             };
             feedback.className = 'practice-feedback show info';
             feedback.textContent = hints[exercise.type] || 'Review the related accounting relationships before checking your work.';
         }
 
         function nextPracticeExercise() {
+            if (practiceFinished) return;
+
             const exercise = activePracticeExercises[practiceIndex];
+            persistPracticeResponses(exercise);
             if (!exercise._checked) {
                 const result = scorePracticeExercise(exercise, false);
                 exercise._checked = true;
@@ -1915,8 +2788,10 @@ if (!window.d3) {
                 practiceIndex++;
                 renderPracticeExercise();
             } else {
-                practiceFinished = true;
-                renderPracticeScore();
+                finalizePracticeSet();
+                updatePracticeScore();
+                renderPracticeSidebar();
+                renderPracticeExercise();
             }
         }
 
@@ -1929,24 +2804,30 @@ if (!window.d3) {
 
         function resetPracticeExercise() {
             const exercise = activePracticeExercises[practiceIndex];
-            exercise.rows.forEach(row => delete row._selected);
-            delete exercise._checked;
-            delete exercise._scoreCorrect;
-            delete exercise._scoreTotal;
+            clearPracticeExerciseState(exercise);
             updatePracticeScore();
             renderPracticeExercise();
         }
 
+        function clearPracticeExerciseState(exercise) {
+            (exercise.rows || []).forEach(row => delete row._selected);
+            (exercise.parts || []).forEach(part => delete part._selected);
+            (exercise.data?.questions || []).forEach(row => delete row._selected);
+            delete exercise._inputValues;
+            delete exercise._dragPlacements;
+            delete exercise._checked;
+            delete exercise._scoreCorrect;
+            delete exercise._scoreTotal;
+        }
+
         function restartPractice() {
             activePracticeExercises.forEach(exercise => {
-                exercise.rows.forEach(row => delete row._selected);
-                delete exercise._checked;
-                delete exercise._scoreCorrect;
-                delete exercise._scoreTotal;
+                clearPracticeExerciseState(exercise);
             });
             practiceIndex = 0;
             practiceFinished = false;
             updatePracticeScore();
+            renderPracticeSidebar();
             renderPracticeExercise();
         }
 

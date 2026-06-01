@@ -915,6 +915,15 @@
             padding: 14px;
         }
 
+        .practice-mcq-card {
+            max-width: 860px;
+            margin-bottom: 14px;
+            padding: 18px;
+            border: 1px solid #dfe3e8;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
         .practice-card-label {
             margin-bottom: 10px;
             color: #111827;
@@ -968,6 +977,21 @@
             color: #dc2626;
         }
 
+        .practice-explanation {
+            display: none;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            color: #526174;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .practice-explanation.visible {
+            display: block;
+        }
+
         .practice-pool-label {
             margin-bottom: 10px;
             color: #8b949e;
@@ -1011,6 +1035,15 @@
             opacity: 0.35;
         }
 
+        .practice-answer-reveal {
+            display: block;
+            margin-top: 4px;
+            color: #15803d;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
         .practice-drop-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1046,6 +1079,16 @@
             font-size: 14px;
         }
 
+        .practice-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+
+        .practice-wide-table {
+            min-width: 760px;
+        }
+
         .practice-table td {
             padding: 6px 8px;
         }
@@ -1071,6 +1114,12 @@
             text-transform: uppercase;
         }
 
+        .practice-formula {
+            color: #526174;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
         .practice-table .indented .row-label {
             padding-left: 24px;
         }
@@ -1092,6 +1141,10 @@
             max-width: 460px;
             padding: 24px;
             margin-bottom: 20px;
+        }
+
+        .practice-calc-card {
+            max-width: 680px;
         }
 
         .practice-scenario {
@@ -1120,6 +1173,84 @@
             border-top: 2px solid #111827;
             border-bottom: 0;
             font-weight: 800;
+        }
+
+        .practice-step-grid {
+            display: grid;
+            grid-template-columns: minmax(240px, 1fr) minmax(280px, 1fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .practice-step-slot {
+            min-height: 74px;
+            margin-bottom: 10px;
+        }
+
+        .practice-step-number {
+            margin-bottom: 8px;
+            color: #111827;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        .practice-step-chip {
+            display: block;
+            width: 100%;
+            margin-bottom: 8px;
+            white-space: normal;
+            line-height: 1.35;
+        }
+
+        .practice-bond-table {
+            min-width: 680px;
+        }
+
+        .practice-fs-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .practice-fs-panel {
+            padding: 16px;
+            border: 1px solid #dfe3e8;
+            border-radius: 8px;
+            background: #ffffff;
+            font-size: 13px;
+        }
+
+        .practice-fs-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 4px 0;
+            color: #111827;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .practice-fs-line.indent {
+            padding-left: 18px;
+            color: #526174;
+        }
+
+        .practice-fs-line.total {
+            margin-top: 4px;
+            padding-top: 7px;
+            border-top: 1px solid #111827;
+            font-weight: 800;
+        }
+
+        .practice-fs-line.section {
+            margin-top: 12px;
+            color: #8b949e;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
         .practice-footer {
@@ -1598,6 +1729,18 @@
             .practice-score {
                 order: -1;
                 width: 100%;
+            }
+
+            .practice-step-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .practice-bond-table {
+                min-width: 560px;
+            }
+
+            .practice-fs-grid {
+                grid-template-columns: 1fr;
             }
         }
 

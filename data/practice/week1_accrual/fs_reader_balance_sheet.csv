@@ -1,0 +1,28 @@
+line_label,value,is_indent,is_total,is_section
+ASSETS,,false,false,true
+Cash & Cash Equivalents,$13700,true,false,false
+Short-Term Investments,1534,true,false,false
+Receivables net,2285,true,false,false
+Merchandise Inventories,16651,true,false,false
+Other Current Assets,1709,true,false,false
+Total Current Assets,$35879,false,true,false
+Property Plant & Equip. net,26684,true,false,false
+Other Long-Term Assets,6431,true,false,false
+Total Assets,$68994,false,true,false
+LIABILITIES,,false,false,true
+Accounts Payable,$17483,true,false,false
+Accrued Salaries & Benefits,4278,true,false,false
+Accrued Member Rewards,2150,true,false,false
+Deferred Membership Fees,2337,true,false,false
+Current Portion of LT Debt,1081,true,false,false
+Other Current Liabilities,6254,true,false,false
+Total Current Liabilities,$33583,false,true,false
+Long-Term Debt,5377,true,false,false
+Other Long-Term Liabilities,4976,true,false,false
+Total Liabilities,$43936,false,true,false
+EQUITY,,false,false,true
+Common Stock & Paid-In Capital,$7342,true,false,false
+Retained Earnings,19521,true,false,false
+Other Comprehensive Loss,(1801),true,false,false
+Total Equity,$25058,false,true,false
+Total Liabilities & Equity,$68994,false,true,false

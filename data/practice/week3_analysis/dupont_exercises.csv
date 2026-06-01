@@ -1,0 +1,7 @@
+exercise_id,company,part_label,answer,is_given,hint
+dp1,Walmart,ROA = PM x AT = 2.5% x 2.62,6.55,false,0.025 x 2.62 = 0.0655 = 6.55% (≈ 6.6% with rounding)
+dp1,Walmart,Equity Multiplier (247798 / 87052),2.85,false,247798 / 87052 = 2.85x
+dp1,Walmart,ROE = PM x AT x EM = 6.55% x 2.85,18.7,false,6.55% x 2.85 = 18.7%
+dp2,Costco,ROA = PM x AT = 2.6% x 3.64,9.46,false,0.026 x 3.64 = 0.0946 = 9.46% (≈ 9.5%)
+dp2,Costco,ROE = ROA x EM = 9.46% x 2.91,27.5,false,9.46% x 2.91 = 27.5%
+dp2,Costco,Costco Asset Turnover (key driver of higher ROA vs Walmart),3.64,false,Costco AT = 3.64x vs Walmart 2.62x — biggest difference between the two

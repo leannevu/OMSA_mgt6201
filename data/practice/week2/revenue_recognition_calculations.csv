@@ -1,0 +1,11 @@
+exercise_id,company,part_label,answer,is_given,hint
+rev1,Tomato FertPhone,Total Revenue (1000 x $800),800000,true,1000 units x $800
+rev1,Tomato FertPhone,Hardware Revenue (60% - recognized at point of sale),480000,true,$800000 x 60%
+rev1,Tomato FertPhone,Total Software Revenue (40%),320000,false,$800000 x 40%
+rev1,Tomato FertPhone,Software Revenue per year (over 2 years),160000,false,$320000 / 2 years
+rev1,Tomato FertPhone,Software Revenue recognized in 2024 (Oct 1 - Dec 31 = 3/12),40000,false,$160000 x 3/12
+rev1,Tomato FertPhone,Total 2024 Revenue,520000,false,$480000 hardware + $40000 software
+rev2,NetStream Subscription,Total subscription revenue (500 x $120),60000,true,500 x $120
+rev2,NetStream Subscription,Months of service in 2024 (July-Dec),6,true,July Aug Sep Oct Nov Dec
+rev2,NetStream Subscription,Monthly revenue per subscription ($120 / 12),10,false,$120 / 12 months
+rev2,NetStream Subscription,Revenue recognized in 2024 (6 months x 500 subs x $10),30000,false,6 x 500 x $10

@@ -1,0 +1,12 @@
+ratio_label,formula,category,wmt_numerator,wmt_denominator,wmt_answer,wmt_hint,cst_numerator,cst_denominator,cst_answer,cst_hint
+Return on Assets,Net Income / Avg Total Assets,Profitability,16270,247798,6.6,16270 / 247798 = 6.6%,6292,66580,9.5,6292 / 66580 = 9.5%
+Profit Margin,Net Income / Total Revenue,Profitability,16270,648125,2.5,16270 / 648125 = 2.5%,6292,242290,2.6,6292 / 242290 = 2.6%
+Asset Turnover,Total Revenue / Avg Total Assets,Profitability,648125,247798,2.62,648125 / 247798 = 2.62x,242290,66580,3.64,242290 / 66580 = 3.64x
+Return on Equity,Net Income / Avg Shareholders Equity,Profitability,16270,87052,18.7,16270 / 87052 = 18.7%,6292,22853,27.5,6292 / 22853 = 27.5%
+Equity Multiplier,Avg Total Assets / Avg Shareholders Equity,Profitability,247798,87052,2.85,247798 / 87052 = 2.85x,66580,22853,2.91,66580 / 22853 = 2.91x
+Current Ratio,Current Assets / Current Liabilities,Liquidity,76877,92415,0.83,76877 / 92415 = 0.83,35879,33583,1.07,35879 / 33583 = 1.07
+Debt-to-Equity,Total Liabilities / Total Equity,Solvency,162050,90349,1.79,162050 / 90349 = 1.79,43936,25058,1.75,43936 / 25058 = 1.75
+Avg Collection Period,365 x Avg A/R / Total Revenue (days),Efficiency,365 x 8365,648125,4.7,(365 x 8365) / 648125 = 4.7 days,365 x 2263,242290,3.4,(365 x 2263) / 242290 = 3.4 days
+Avg Days Inventory,365 x Avg Inventory / COGS (days),Efficiency,365 x 55734,490142,41.5,(365 x 55734) / 490142 = 41.5 days,365 x 17279,212586,29.7,(365 x 17279) / 212586 = 29.7 days
+Avg Days Payables,365 x Avg A/P / COGS (days),Efficiency,365 x 55277,490142,41.2,(365 x 55277) / 490142 = 41.2 days,365 x 17666,212586,30.3,(365 x 17666) / 212586 = 30.3 days
+Days in Financing,Days Inventory + Days A/R - Days Payables,Efficiency,41.5 + 4.7 - 41.2,,5.0,41.5 + 4.7 - 41.2 = 5.0 days,29.7 + 3.4 - 30.3,,2.8,29.7 + 3.4 - 30.3 = 2.8 days

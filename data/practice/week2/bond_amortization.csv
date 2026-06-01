@@ -1,0 +1,15 @@
+exercise_id,date,cash_payment,interest_expense,outstanding_balance,cash_is_blank,interest_is_blank,balance_is_blank,notes
+bond1,1/1/24,0,0,1000000,false,false,false,Issue date - par bond stated=market=10%
+bond1,6/30/24,50000,50000,1000000,false,true,false,Cash = $1M x 5%. Interest = Balance x 5%. At par so equal.
+bond1,12/31/24,50000,50000,1000000,false,true,false,Same each period - par bond balance never changes
+bond1,6/30/25,50000,50000,1000000,true,true,false,Fill in both cash and interest
+bond1,12/31/25,50000,50000,1000000,true,true,false,Fill in both cash and interest
+bond1,6/30/26,50000,50000,1000000,true,true,true,Fill in all three
+bond1,12/31/26,50000,50000,1000000,true,true,true,Fill in all three
+bond2,1/1/24,0,0,746215,false,false,false,Issue date - discount bond 0% stated 10% market
+bond2,6/30/24,0,37311,783526,false,true,true,$746215 x 5% = $37311. Balance grows by interest.
+bond2,12/31/24,0,39176,822702,false,true,true,$783526 x 5% = $39176
+bond2,6/30/25,0,41135,863838,false,true,true,$822702 x 5% = $41135
+bond2,12/31/25,0,43192,907029,false,true,true,$863838 x 5% = $43192
+bond2,6/30/26,0,45351,952381,false,true,true,$907029 x 5% = $45351
+bond2,12/31/26,0,47619,1000000,false,true,true,$952381 x 5% = $47619. Reaches par at maturity.

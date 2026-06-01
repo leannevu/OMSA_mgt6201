@@ -1,0 +1,8 @@
+exercise_id,item_label,amount,correct_category,hint
+ppe1,Land purchase price,50000,Land,Direct cost to acquire the land
+ppe1,Architect fees for building,20000,Building,Cost to design the building - capitalize to building
+ppe1,Cost of clearing the land,3000,Land,Required to prepare the land site - capitalize to land
+ppe1,Legal fees for title investigation,4000,Land,Legal costs to acquire land title - capitalize to land
+ppe1,Property taxes on land for 2023,5000,Expense,Future period taxes - expense as incurred not capitalizable
+ppe1,Construction costs of building,300000,Building,Direct construction cost - capitalize to building
+ppe1,Interest on construction loan,3500,Building,Interest during construction is capitalized to the building
