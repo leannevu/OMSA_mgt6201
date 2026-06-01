@@ -15,7 +15,7 @@ PRACTICE_CSVS = {
     "/api/practice/statements": PRACTICE_DATA_ROOT / "statement_completion.csv",
     "/api/practice/retained-earnings": PRACTICE_DATA_ROOT / "retained_earnings.csv",
 }
-HOST = os.environ.get("HOST", "127.0.0.1")
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8001"))
 
 
@@ -53,4 +53,6 @@ class KnowledgeTreeHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"Knowledge Tree server running on {HOST}:{PORT}")
+    if HOST == "0.0.0.0":
+        print(f"Local URL: http://127.0.0.1:{PORT}")
     ThreadingHTTPServer((HOST, PORT), KnowledgeTreeHandler).serve_forever()

@@ -174,19 +174,20 @@ if (!window.d3) {
 
         async function loadAccountingQuizCSV() {
             try {
-                const candidates = await loadAccountingCSVCandidates();
-                const quizCandidate = candidates.find(candidate => parseQuizRows(parseCSVRobust(candidate.csv)).length > 0);
-                const fallbackCandidate = candidates.find(candidate => extractTermsFromRows(parseCSVRobust(candidate.csv)).length > 0);
-                const selected = quizCandidate || fallbackCandidate;
+                const sourceName = 'accounting_quiz.csv';
+                const csv = await fetchAccountingCSV('/api/accounting-quiz-csv', sourceName);
+                const rows = parseCSVRobust(csv);
+                const hasQuizRows = parseQuizRows(rows).length > 0;
+                const hasTermRows = extractTermsFromRows(rows).length > 0;
 
-                if (!selected) {
-                    showNotice('No usable accounting quiz or term rows found.', true);
+                if (!hasQuizRows && !hasTermRows) {
+                    showNotice(`${sourceName} has no usable quiz or term rows.`, true);
                     return;
                 }
 
-                accountingQuizCsvText = selected.csv;
-                accountingQuizSourceName = selected.sourceName;
-                loadAccountingQuiz(selected.csv, selected.sourceName);
+                accountingQuizCsvText = csv;
+                accountingQuizSourceName = sourceName;
+                loadAccountingQuiz(csv, sourceName);
             } catch (error) {
                 showNotice(`Could not load accounting quiz data. ${error.message}`, true);
             }
@@ -194,33 +195,22 @@ if (!window.d3) {
 
         async function loadAccountingMapCSV() {
             try {
-                const candidates = await loadAccountingCSVCandidates();
-                const selected = candidates.find(candidate => extractMapTerms(parseCSVRobust(candidate.csv)).length > 0);
+                const sourceName = 'accounting_map.csv';
+                const csv = await fetchAccountingCSV('/api/accounting-map-csv', sourceName);
+                const rows = parseCSVRobust(csv);
 
-                if (!selected) {
-                    showNotice('No usable mindmap rows found. CSV needs term, definition, and branch columns.', true);
+                if (extractMapTerms(rows).length === 0) {
+                    showNotice(`${sourceName} has no usable mindmap rows. CSV needs term, definition, and branch columns.`, true);
                     return '';
                 }
 
-                accountingMapCsvText = selected.csv;
-                accountingMapSourceName = selected.sourceName;
+                accountingMapCsvText = csv;
+                accountingMapSourceName = sourceName;
                 return accountingMapCsvText;
             } catch (error) {
                 showNotice(`Could not load accounting map data. ${error.message}`, true);
                 return '';
             }
-        }
-
-        async function loadAccountingCSVCandidates() {
-            const sources = [
-                { endpoint: '/api/accounting-quiz-csv', sourceName: 'accounting_quiz.csv' },
-                { endpoint: '/api/accounting-map-csv', sourceName: 'accounting_map.csv' }
-            ];
-
-            return Promise.all(sources.map(async source => ({
-                ...source,
-                csv: await fetchAccountingCSV(source.endpoint, source.sourceName)
-            })));
         }
 
         function loadAccountingQuiz(csvText, sourceName = 'accounting_quiz.csv') {
