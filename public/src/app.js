@@ -27,6 +27,15 @@ if (!window.d3) {
         let quizAnswers = [];
         let quizFinished = false;
         let freezeQuizTabs = false;
+        let practiceLoaded = false;
+        let practiceExercises = [];
+        let activePracticeExercises = [];
+        let practiceIndex = 0;
+        let activePracticeTopic = 'All';
+        let practiceScoreCorrect = 0;
+        let practiceScoreTotal = 0;
+        let practiceDraggedEl = null;
+        let practiceFinished = false;
 
         function showNotice(message, isError = false) {
             const notice = document.getElementById('notice');
@@ -229,6 +238,7 @@ if (!window.d3) {
 
             currentView = 'quiz';
             document.body.classList.add('quiz-mode');
+            document.body.classList.remove('practice-mode');
             document.querySelector('.file-name').textContent = sourceName;
             setViewButtons();
             activeTopicFilter = 'All';
@@ -267,6 +277,7 @@ if (!window.d3) {
 
             currentView = 'mindmap';
             document.body.classList.remove('quiz-mode');
+            document.body.classList.remove('practice-mode');
             setViewButtons();
             initializeTreeCanvas();
             parseCSV(accountingMapCsvText, accountingMapSourceName);
@@ -276,6 +287,7 @@ if (!window.d3) {
         function setViewButtons() {
             document.getElementById('quiz-view-button').classList.toggle('active', currentView === 'quiz');
             document.getElementById('mindmap-view-button').classList.toggle('active', currentView === 'mindmap');
+            document.getElementById('practice-view-button').classList.toggle('active', currentView === 'practice');
             document.getElementById('mindmap-view-button').disabled = freezeQuizTabs && currentView === 'quiz';
         }
 
@@ -1369,6 +1381,589 @@ if (!window.d3) {
             g.selectAll('path.link').classed('highlighted', false);
         }
 
+        // ===== INTERACTIVE PRACTICE =====
+        async function switchToPractice() {
+            currentView = 'practice';
+            document.body.classList.remove('quiz-mode');
+            document.body.classList.add('practice-mode');
+            document.querySelector('.file-name').textContent = 'interactive practice';
+            updateRouteBar(null);
+            setViewButtons();
+
+            if (!practiceLoaded) {
+                try {
+                    const data = await loadPracticeData();
+                    practiceExercises = buildPracticeExercises(data);
+                    activePracticeExercises = [...practiceExercises];
+                    practiceLoaded = true;
+                } catch (error) {
+                    showNotice(`Could not load practice data. ${error.message}`, true);
+                    return;
+                }
+            }
+
+            if (practiceExercises.length === 0) {
+                showNotice('No practice exercises found.', true);
+                return;
+            }
+
+            renderPracticeSidebar();
+            renderPracticeExercise();
+            showNotice(`Loaded ${practiceExercises.length} practice exercise${practiceExercises.length === 1 ? '' : 's'}.`);
+        }
+
+        async function loadPracticeData() {
+            const sources = {
+                classify: '/api/practice/account-classification',
+                balanceSheet: '/api/practice/balance-sheet',
+                statements: '/api/practice/statements',
+                retainedEarnings: '/api/practice/retained-earnings'
+            };
+
+            const entries = await Promise.all(Object.entries(sources).map(async ([key, endpoint]) => {
+                const response = await fetch(endpoint, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`${endpoint} returned ${response.status}`);
+                return [key, rowsToObjects(parseCSVRobust(await response.text()))];
+            }));
+
+            return Object.fromEntries(entries);
+        }
+
+        function rowsToObjects(rows) {
+            if (rows.length < 2) return [];
+            const headers = rows[0].map(header => header.trim());
+            return rows.slice(1).map(row => {
+                const item = {};
+                headers.forEach((header, idx) => {
+                    item[header] = (row[idx] || '').trim();
+                });
+                return item;
+            }).filter(item => Object.values(item).some(Boolean));
+        }
+
+        function buildPracticeExercises(data) {
+            const exercises = [];
+            const classifyRows = data.classify || [];
+            const batchSize = 8;
+
+            for (let i = 0; i < classifyRows.length; i += batchSize) {
+                const rows = classifyRows.slice(i, i + batchSize);
+                exercises.push({
+                    type: 'classify_type',
+                    topic: 'Classify: Account Type',
+                    title: 'What type of account is each of the following?',
+                    subtitle: "(Asset, Liability, Owners' Equity, Revenue, Expense, Gain/Loss)",
+                    rows
+                });
+                exercises.push({
+                    type: 'classify_stmt',
+                    topic: 'Classify: Statement',
+                    title: 'Which financial statement does each item belong on?',
+                    subtitle: '(Balance Sheet or Income Statement)',
+                    rows: rows.map(row => ({ ...row }))
+                });
+            }
+
+            groupPracticeRows(data.balanceSheet || [], 'exercise_id').forEach(group => {
+                exercises.push({
+                    type: 'drag_bs',
+                    topic: 'Build: Balance Sheet',
+                    title: 'Build the balance sheet by dragging each item into the right section.',
+                    subtitle: 'Use liquidity for assets and maturity for liabilities.',
+                    rows: group.rows
+                });
+            });
+
+            groupPracticeRows(data.statements || [], 'exercise_id').forEach(group => {
+                const exerciseType = group.rows[0]?.exercise_type;
+                const isCashFlow = exerciseType === 'cashflow';
+                exercises.push({
+                    type: isCashFlow ? 'fill_cf' : 'fill_is',
+                    topic: isCashFlow ? 'Build: Cash Flow' : 'Build: Income Statement',
+                    title: isCashFlow ? 'Complete the statement of cash flows.' : 'Complete the income statement.',
+                    subtitle: 'Fill in the missing subtotal and total amounts.',
+                    company: group.id === 'is2' ? 'Easy Corp.' : 'Practice Corp.',
+                    rows: group.rows.sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
+                });
+            });
+
+            groupPracticeRows(data.retainedEarnings || [], 'exercise_id').forEach(group => {
+                exercises.push({
+                    type: 'fill_re',
+                    topic: 'Retained Earnings',
+                    title: group.id.startsWith('se') ? "Complete the stockholders' equity roll-forward." : 'Complete retained earnings.',
+                    subtitle: 'Use beginning balance, additions, and reductions to reach ending balance.',
+                    scenario: group.id.startsWith('se')
+                        ? 'Complete the year-end equity balances using the roll-forward format.'
+                        : 'Calculate ending retained earnings from beginning retained earnings, net income, and dividends.',
+                    rows: group.rows
+                });
+            });
+
+            return exercises;
+        }
+
+        function groupPracticeRows(rows, key) {
+            const map = new Map();
+            rows.forEach(row => {
+                const id = row[key] || 'practice';
+                if (!map.has(id)) map.set(id, []);
+                map.get(id).push(row);
+            });
+            return Array.from(map, ([id, groupRows]) => ({ id, rows: groupRows }));
+        }
+
+        function renderPracticeSidebar() {
+            const sidebarContent = document.getElementById('sidebar-content');
+            const counts = practiceExercises.reduce((acc, exercise) => {
+                acc[exercise.topic] = (acc[exercise.topic] || 0) + 1;
+                return acc;
+            }, {});
+            const topics = ['All', ...Object.keys(counts)];
+
+            sidebarContent.innerHTML = `
+                <div class="practice-nav">
+                    <div class="practice-tools">
+                        <button id="practice-reset" class="practice-tool-button" type="button">Reset</button>
+                        <button id="practice-hint" class="practice-tool-button" type="button">Hint</button>
+                        <button id="practice-check" class="practice-tool-button" type="button">Check</button>
+                        <button id="practice-next-side" class="practice-tool-button" type="button">Next &rarr;</button>
+                    </div>
+                    <div class="practice-topic-label">Exercise Type</div>
+                    ${topics.map(topic => {
+                        const count = topic === 'All' ? practiceExercises.length : counts[topic];
+                        return `
+                            <button class="practice-topic ${activePracticeTopic === topic ? 'active' : ''}" type="button" data-topic="${escapeHTML(topic)}">
+                                <span>${escapeHTML(topic)}</span>
+                                <span>${count}</span>
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            document.getElementById('practice-reset').addEventListener('click', resetPracticeExercise);
+            document.getElementById('practice-hint').addEventListener('click', showPracticeHint);
+            document.getElementById('practice-check').addEventListener('click', checkPracticeAnswers);
+            document.getElementById('practice-next-side').addEventListener('click', nextPracticeExercise);
+            sidebarContent.querySelectorAll('.practice-topic').forEach(button => {
+                button.addEventListener('click', event => {
+                    activePracticeTopic = event.currentTarget.dataset.topic;
+                    activePracticeExercises = activePracticeTopic === 'All'
+                        ? [...practiceExercises]
+                        : practiceExercises.filter(exercise => exercise.topic === activePracticeTopic);
+                    practiceIndex = 0;
+                    practiceFinished = false;
+                    renderPracticeSidebar();
+                    renderPracticeExercise();
+                });
+            });
+        }
+
+        function renderPracticeExercise() {
+            const exercise = activePracticeExercises[practiceIndex];
+            if (!exercise) return;
+            if (practiceFinished) {
+                renderPracticeScore();
+                return;
+            }
+
+            const buttonLabel = practiceIndex >= activePracticeExercises.length - 1 ? 'Finish' : 'Next';
+            const checked = !!exercise._checked;
+
+            container.innerHTML = `
+                <div class="practice-shell">
+                    <div class="practice-progress-track">
+                        <div class="practice-progress-fill" style="width:${((practiceIndex + 1) / activePracticeExercises.length) * 100}%"></div>
+                    </div>
+                    <div class="practice-header">
+                        <span class="practice-tag">${escapeHTML(exercise.topic)}</span>
+                        <span class="practice-position">${practiceIndex + 1} of ${activePracticeExercises.length}</span>
+                    </div>
+                    <div class="practice-content" id="practice-content">
+                        <h1 class="practice-title">${escapeHTML(exercise.title)}</h1>
+                        <div class="practice-subtitle">${escapeHTML(exercise.subtitle || '')}</div>
+                        <div class="practice-feedback" id="practice-feedback"></div>
+                        <div id="practice-body"></div>
+                    </div>
+                    <div class="practice-footer">
+                        <div class="practice-footer-group">
+                            <button id="practice-prev" class="practice-button" type="button" ${practiceIndex === 0 ? 'disabled' : ''}>Previous</button>
+                            <button id="practice-footer-hint" class="practice-button" type="button">Hint</button>
+                        </div>
+                        <div class="practice-score">Score: <strong id="practice-score-correct">${practiceScoreCorrect}</strong> / <span id="practice-score-total">${practiceScoreTotal}</span></div>
+                        <div class="practice-footer-group">
+                            <button id="practice-footer-check" class="practice-button" type="button" ${checked ? 'disabled' : ''}>Check</button>
+                            <button id="practice-next" class="practice-button primary" type="button">${buttonLabel}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const body = document.getElementById('practice-body');
+            if (exercise.type === 'classify_type') renderPracticeClassify(body, exercise, 'account_type', ['Asset', 'Liability', 'Owners Equity', 'Revenue', 'Expense', 'Gain/Loss']);
+            if (exercise.type === 'classify_stmt') renderPracticeClassify(body, exercise, 'statement', ['Balance Sheet', 'Income Statement']);
+            if (exercise.type === 'drag_bs') renderPracticeDrag(body, exercise, [
+                { id: 'assets', label: 'Assets', sub: 'Ordered by liquidity' },
+                { id: 'liabilities', label: 'Liabilities', sub: 'Ordered by maturity' },
+                { id: 'ownersequity', label: "Owners' Equity", sub: 'No required order' }
+            ], row => row.correct_section);
+            if (exercise.type === 'drag_cf') renderPracticeDrag(body, exercise, [
+                { id: 'operating', label: 'Operating Activities', sub: 'Day-to-day business operations' },
+                { id: 'investing', label: 'Investing Activities', sub: 'Long-term assets and loans' },
+                { id: 'financing', label: 'Financing Activities', sub: 'Debt and equity capital' }
+            ], row => row.section);
+            if (exercise.type === 'fill_is') renderPracticeStatement(body, exercise, false);
+            if (exercise.type === 'fill_cf') renderPracticeStatement(body, exercise, true);
+            if (exercise.type === 'fill_re') renderPracticeRetainedEarnings(body, exercise);
+            if (checked) showCheckedPracticeResult(exercise);
+
+            document.getElementById('practice-prev').addEventListener('click', previousPracticeExercise);
+            document.getElementById('practice-footer-hint').addEventListener('click', showPracticeHint);
+            document.getElementById('practice-footer-check').addEventListener('click', checkPracticeAnswers);
+            document.getElementById('practice-next').addEventListener('click', nextPracticeExercise);
+        }
+
+        function renderPracticeClassify(body, exercise, answerKey, options) {
+            const grid = document.createElement('div');
+            grid.className = 'practice-grid';
+            exercise.rows.forEach((row, idx) => {
+                const card = document.createElement('div');
+                card.className = 'practice-card';
+                card.innerHTML = `
+                    <div class="practice-card-label">${escapeHTML(row.label)}</div>
+                    <div class="practice-options">
+                        ${options.map(option => `<button class="practice-option" type="button" data-row="${idx}" data-value="${escapeHTML(option)}">${escapeHTML(option)}</button>`).join('')}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            body.appendChild(grid);
+
+            grid.querySelectorAll('.practice-option').forEach(button => {
+                button.addEventListener('click', event => {
+                    const row = exercise.rows[Number(event.currentTarget.dataset.row)];
+                    row._selected = event.currentTarget.dataset.value;
+                    event.currentTarget.closest('.practice-options').querySelectorAll('.practice-option').forEach(item => item.classList.remove('selected'));
+                    event.currentTarget.classList.add('selected');
+                });
+            });
+        }
+
+        function renderPracticeDrag(body, exercise, zones, answerGetter) {
+            const poolLabel = document.createElement('div');
+            poolLabel.className = 'practice-pool-label';
+            poolLabel.textContent = 'Items - drag to the correct section';
+            body.appendChild(poolLabel);
+
+            const pool = document.createElement('div');
+            pool.className = 'practice-pool';
+            attachPracticeDrop(pool);
+            body.appendChild(pool);
+
+            exercise.rows.forEach((row, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'practice-chip';
+                chip.id = `practice-chip-${idx}`;
+                chip.draggable = true;
+                chip.dataset.correct = normalizePracticeKey(answerGetter(row));
+                chip.textContent = row.item_label ? `${row.item_label}${row.amount ? ` $${row.amount}` : ''}` : row.label;
+                chip.addEventListener('dragstart', () => {
+                    practiceDraggedEl = chip;
+                    chip.classList.add('dragging');
+                });
+                chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+                pool.appendChild(chip);
+            });
+
+            const grid = document.createElement('div');
+            grid.className = 'practice-drop-grid';
+            zones.forEach(zoneConfig => {
+                const zone = document.createElement('div');
+                zone.className = 'practice-drop-zone';
+                zone.dataset.zone = zoneConfig.id;
+                zone.innerHTML = `
+                    <div class="practice-drop-label">${escapeHTML(zoneConfig.label)}</div>
+                    <div class="practice-drop-sub">${escapeHTML(zoneConfig.sub)}</div>
+                `;
+                attachPracticeDrop(zone);
+                grid.appendChild(zone);
+            });
+            body.appendChild(grid);
+        }
+
+        function attachPracticeDrop(zone) {
+            zone.addEventListener('dragover', event => {
+                event.preventDefault();
+                zone.classList.add('drag-over');
+            });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+            zone.addEventListener('drop', event => {
+                event.preventDefault();
+                zone.classList.remove('drag-over');
+                if (practiceDraggedEl) {
+                    zone.appendChild(practiceDraggedEl);
+                    practiceDraggedEl = null;
+                }
+            });
+        }
+
+        function renderPracticeStatement(body, exercise, isCashFlow) {
+            const title = document.createElement('div');
+            title.style.cssText = 'text-align:center;margin-bottom:16px;';
+            title.innerHTML = `<strong>${escapeHTML(exercise.company || 'Practice Corp.')}</strong><br><span style="font-size:13px;color:#526174">${isCashFlow ? 'Statement of Cash Flows (Indirect Method)' : 'Income Statement'}<br>For the year ended December 31, 2024</span>`;
+            body.appendChild(title);
+
+            const table = document.createElement('table');
+            table.className = 'practice-table';
+            const subtotals = ['Gross Profit', 'Operating Income', 'Income Before Taxes', 'Net Income', 'Cash from Operations', 'Cash from Investing', 'Cash from Financing', 'Change in Cash'];
+            const sectionHeaders = {
+                'Net Income': 'Operating Section:',
+                'Cash paid for PPE': 'Investing Section:',
+                'Issued Stock': 'Financing Section:',
+                'Change in Cash': 'Summary:'
+            };
+
+            exercise.rows.forEach(row => {
+                if (isCashFlow && sectionHeaders[row.label]) {
+                    const header = document.createElement('tr');
+                    header.className = 'section-header';
+                    header.innerHTML = `<td colspan="2">${escapeHTML(sectionHeaders[row.label])}</td>`;
+                    table.appendChild(header);
+                }
+
+                const tr = document.createElement('tr');
+                const isSubtotal = subtotals.includes(row.label);
+                tr.className = isSubtotal ? 'subtotal' : 'indented';
+                const value = Number(row.value);
+                const displayValue = value < 0 ? `(${Math.abs(value)})` : String(value);
+                if (row.is_blank === 'true') {
+                    tr.innerHTML = `
+                        <td class="row-label">${isSubtotal ? `<strong>${escapeHTML(row.label)}</strong>` : escapeHTML(row.label)}</td>
+                        <td class="row-value"><input class="practice-input" type="number" placeholder="?" data-answer="${escapeHTML(row.value)}" data-hint="${escapeHTML(row.hint)}"></td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td class="row-label">${isSubtotal ? `<strong>${escapeHTML(row.label)}</strong>` : escapeHTML(row.label)}</td>
+                        <td class="row-value">${displayValue}</td>
+                    `;
+                }
+                table.appendChild(tr);
+            });
+            body.appendChild(table);
+        }
+
+        function renderPracticeRetainedEarnings(body, exercise) {
+            const card = document.createElement('div');
+            card.className = 'practice-re-card';
+            card.innerHTML = `<div class="practice-scenario">${escapeHTML(exercise.scenario)}</div>`;
+
+            exercise.rows.forEach(row => {
+                const item = document.createElement('div');
+                item.className = 'practice-re-row';
+                const sign = row.label.startsWith('Minus') ? '- ' : row.label.startsWith('Plus') ? '+ ' : '';
+                const label = row.label.replace(/^(Plus |Minus )/, '');
+                if (row.is_blank === 'true') {
+                    item.innerHTML = `<span>${escapeHTML(sign + label)}</span><input class="practice-input" type="number" placeholder="?" data-answer="${escapeHTML(row.value)}" data-hint="${escapeHTML(row.hint)}">`;
+                } else {
+                    item.innerHTML = `<span>${escapeHTML(sign + label)}</span><span style="font-variant-numeric:tabular-nums;font-weight:700">$${escapeHTML(row.value)}</span>`;
+                }
+                card.appendChild(item);
+            });
+
+            body.appendChild(card);
+        }
+
+        function checkPracticeAnswers() {
+            const exercise = activePracticeExercises[practiceIndex];
+            if (exercise._checked) {
+                showCheckedPracticeResult(exercise);
+                return;
+            }
+
+            const result = scorePracticeExercise(exercise, true);
+
+            exercise._checked = true;
+            exercise._scoreCorrect = result.correct;
+            exercise._scoreTotal = result.total;
+            updatePracticeScore();
+            showCheckedPracticeResult(exercise);
+            const checkButton = document.getElementById('practice-footer-check');
+            if (checkButton) checkButton.disabled = true;
+        }
+
+        function scorePracticeExercise(exercise, markAnswers = false) {
+            const feedback = document.getElementById('practice-feedback');
+            let correct = 0;
+            let total = 0;
+
+            if (exercise.type === 'classify_type' || exercise.type === 'classify_stmt') {
+                const answerKey = exercise.type === 'classify_type' ? 'account_type' : 'statement';
+                exercise.rows.forEach((row, idx) => {
+                    total++;
+                    document.querySelectorAll(`.practice-option[data-row="${idx}"]`).forEach(button => {
+                        const isAnswer = button.dataset.value === row[answerKey];
+                        const isSelection = button.dataset.value === row._selected;
+                        if (markAnswers && isAnswer) button.classList.add('correct');
+                        if (markAnswers && isSelection && !isAnswer) button.classList.add('wrong');
+                        if (isSelection && isAnswer) correct++;
+                        if (markAnswers) button.disabled = true;
+                    });
+                });
+            } else if (exercise.type === 'drag_bs' || exercise.type === 'drag_cf') {
+                document.querySelectorAll('.practice-chip').forEach(chip => {
+                    const zone = chip.closest('.practice-drop-zone');
+                    total++;
+                    if (zone && zone.dataset.zone === chip.dataset.correct) {
+                        correct++;
+                        if (markAnswers) chip.classList.add('correct');
+                    } else {
+                        if (markAnswers) chip.classList.add('wrong');
+                    }
+                });
+            } else {
+                document.querySelectorAll('.practice-input').forEach(input => {
+                    total++;
+                    const expected = Number(input.dataset.answer);
+                    const hasValue = input.value.trim() !== '';
+                    const actual = Number(input.value);
+                    const tolerance = Math.abs(expected) < 1 ? 0.01 : 0.5;
+                    if (hasValue && Math.abs(actual - expected) <= tolerance) {
+                        correct++;
+                        if (markAnswers) {
+                            input.classList.add('correct');
+                            input.classList.remove('wrong');
+                        }
+                    } else {
+                        if (markAnswers) {
+                            input.classList.add('wrong');
+                            input.classList.remove('correct');
+                        }
+                    }
+                });
+            }
+
+            return { correct, total };
+        }
+
+        function showCheckedPracticeResult(exercise) {
+            const feedback = document.getElementById('practice-feedback');
+            const correct = exercise._scoreCorrect || 0;
+            const total = exercise._scoreTotal || 0;
+            feedback.className = `practice-feedback show ${correct === total ? 'correct' : 'info'}`;
+            feedback.textContent = `${correct} of ${total} correct.${correct === total ? ' Great job!' : ' Green marks the correct answer; red marks a wrong selection.'}`;
+        }
+
+        function updatePracticeScore() {
+            const score = activePracticeExercises.reduce((acc, exercise) => {
+                if (exercise._checked) {
+                    acc.correct += exercise._scoreCorrect || 0;
+                    acc.total += exercise._scoreTotal || 0;
+                }
+                return acc;
+            }, { correct: 0, total: 0 });
+            practiceScoreCorrect = score.correct;
+            practiceScoreTotal = score.total;
+
+            const correctEl = document.getElementById('practice-score-correct');
+            const totalEl = document.getElementById('practice-score-total');
+            if (correctEl) correctEl.textContent = practiceScoreCorrect;
+            if (totalEl) totalEl.textContent = practiceScoreTotal;
+        }
+
+        function renderPracticeScore() {
+            updatePracticeScore();
+            const percent = practiceScoreTotal ? Math.round((practiceScoreCorrect / practiceScoreTotal) * 100) : 0;
+            container.innerHTML = `
+                <div class="practice-shell score-shell">
+                    <div class="score-card">
+                        <div class="score-label">Practice Complete</div>
+                        <div class="score-value">${practiceScoreCorrect} / ${practiceScoreTotal}</div>
+                        <div class="score-percent">${percent}%</div>
+                        <div class="score-detail">${activePracticeExercises.filter(exercise => exercise._checked).length} of ${activePracticeExercises.length} exercises checked</div>
+                        <div class="score-actions">
+                            <button id="practice-review" class="quiz-nav-button" type="button">Review</button>
+                            <button id="practice-restart" class="quiz-nav-button primary" type="button">Restart</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('practice-review').addEventListener('click', () => {
+                practiceFinished = false;
+                practiceIndex = 0;
+                renderPracticeExercise();
+            });
+            document.getElementById('practice-restart').addEventListener('click', restartPractice);
+        }
+
+        function showPracticeHint() {
+            const exercise = activePracticeExercises[practiceIndex];
+            const feedback = document.getElementById('practice-feedback');
+            const hints = {
+                classify_type: "Assets are owned resources. Liabilities are obligations. Equity is owners' claim. Revenue is income earned. Expenses are costs. Gains and losses are outside normal operations.",
+                classify_stmt: 'Assets, liabilities, and equity belong on the balance sheet. Revenues, expenses, gains, and losses belong on the income statement.',
+                drag_bs: 'Assets are ordered by liquidity; liabilities are ordered by maturity; equity has no required order here.',
+                fill_is: 'Gross Profit = Revenue - COGS. Operating Income = Gross Profit - operating expenses. Net Income = income before taxes - tax expense.',
+                fill_cf: 'Operating cash flow starts with net income, then adjusts for non-cash items and working capital. Investing is long-term assets. Financing is debt, stock, and dividends.',
+                fill_re: 'Ending balance = beginning balance + additions - reductions.'
+            };
+            feedback.className = 'practice-feedback show info';
+            feedback.textContent = hints[exercise.type] || 'Review the related accounting relationships before checking your work.';
+        }
+
+        function nextPracticeExercise() {
+            const exercise = activePracticeExercises[practiceIndex];
+            if (!exercise._checked) {
+                const result = scorePracticeExercise(exercise, false);
+                exercise._checked = true;
+                exercise._scoreCorrect = result.correct;
+                exercise._scoreTotal = result.total;
+                updatePracticeScore();
+            }
+
+            if (practiceIndex < activePracticeExercises.length - 1) {
+                practiceIndex++;
+                renderPracticeExercise();
+            } else {
+                practiceFinished = true;
+                renderPracticeScore();
+            }
+        }
+
+        function previousPracticeExercise() {
+            if (practiceIndex > 0) {
+                practiceIndex--;
+                renderPracticeExercise();
+            }
+        }
+
+        function resetPracticeExercise() {
+            const exercise = activePracticeExercises[practiceIndex];
+            exercise.rows.forEach(row => delete row._selected);
+            delete exercise._checked;
+            delete exercise._scoreCorrect;
+            delete exercise._scoreTotal;
+            updatePracticeScore();
+            renderPracticeExercise();
+        }
+
+        function restartPractice() {
+            activePracticeExercises.forEach(exercise => {
+                exercise.rows.forEach(row => delete row._selected);
+                delete exercise._checked;
+                delete exercise._scoreCorrect;
+                delete exercise._scoreTotal;
+            });
+            practiceIndex = 0;
+            practiceFinished = false;
+            updatePracticeScore();
+            renderPracticeExercise();
+        }
+
+        function normalizePracticeKey(value) {
+            return String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+        }
+
         // Controls
         function collapseAll() {
             forestRoots.forEach(r => {
@@ -1399,6 +1994,7 @@ if (!window.d3) {
             document.getElementById('accounting-button').addEventListener('click', switchToQuiz);
             document.getElementById('quiz-view-button').addEventListener('click', switchToQuiz);
             document.getElementById('mindmap-view-button').addEventListener('click', switchToMindmap);
+            document.getElementById('practice-view-button').addEventListener('click', switchToPractice);
             document.getElementById('collapse-button').addEventListener('click', collapseAll);
             document.getElementById('reset-button').addEventListener('click', resetZoom);
             document.getElementById('clear-button').addEventListener('click', clearSelection);
@@ -1456,6 +2052,10 @@ if (!window.d3) {
         window.addEventListener('resize', () => {
             const newWidth = treePanel.clientWidth;
             const newHeight = treePanel.clientHeight;
+            if (currentView === 'practice') {
+                renderPracticeExercise();
+                return;
+            }
             if (currentView === 'quiz') {
                 renderQuizQuestion();
                 return;

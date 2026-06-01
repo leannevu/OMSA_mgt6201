@@ -1,0 +1,18 @@
+exercise_id,item_label,correct_section,amount,hint
+bs1,Cash,Assets,125,Most liquid asset — always first
+bs1,Accounts Receivable,Assets,25,Money owed to the company
+bs1,Inventory,Assets,100,Goods available for sale
+bs1,Land,Assets,200,Long-term asset — cannot be converted to cash quickly
+bs1,Building,Assets,400,Long-term asset — property owned
+bs1,Accounts Payable,Liabilities,150,Short-term obligation to suppliers
+bs1,Note Payable,Liabilities,100,Short-term debt obligation
+bs1,Capital Stock,Owners Equity,500,Amount invested by shareholders
+bs1,Retained Earnings,Owners Equity,250,Accumulated undistributed profits
+bs2,Cash,Assets,10,Most liquid — listed first
+bs2,Accounts Receivable,Assets,25,Current asset — collectible within a year
+bs2,Inventory,Assets,15,Current asset — goods on hand
+bs2,Equipment,Assets,50,Long-term asset — underlined (last asset)
+bs2,Accounts Payable,Liabilities,5,Current liability — owed to suppliers
+bs2,Notes Payable,Liabilities,35,Liability — underlined (last liability)
+bs2,Capital Stock,Owners Equity,55,Equity from stockholders
+bs2,Retained Earnings,Owners Equity,5,Cumulative profits kept in business

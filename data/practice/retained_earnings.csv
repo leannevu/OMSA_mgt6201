@@ -1,0 +1,22 @@
+exercise_id,label,value,is_blank,hint
+re1,Beginning Retained Earnings,125,false,Given starting balance
+re1,Plus Net Income,50,false,From the income statement
+re1,Minus Dividends,75,false,Distributions to shareholders
+re1,Ending Retained Earnings,100,true,Beg RE + NI - Dividends
+re2,Beginning Retained Earnings,0,false,Company just started
+re2,Plus Net Income,50,false,First year net income
+re2,Minus Dividends,0,false,No dividends paid
+re2,Ending Retained Earnings,50,true,Beg RE + NI - Dividends
+re3,Beginning Retained Earnings,200,false,Prior year ending balance
+re3,Plus Net Income,80,false,This year earnings
+re3,Minus Dividends,30,false,Dividends declared
+re3,Ending Retained Earnings,250,true,Beg RE + NI - Dividends
+se1,Capital Stock Balance 1/1/24,900,false,Opening capital stock
+se1,Capital Stock Additions,100,false,New stock issued during year
+se1,Capital Stock Reductions,0,false,No buybacks
+se1,Capital Stock Balance 12/31/24,1000,true,Opening + additions - reductions
+se1,Retained Earnings Balance 1/1/24,125,false,Opening retained earnings
+se1,Retained Earnings Additions (NI),50,false,Net income for the year
+se1,Retained Earnings Reductions (Dividends),75,false,Dividends paid
+se1,Retained Earnings Balance 12/31/24,100,true,Opening + NI - Dividends
+se1,Total Equity 12/31/24,1100,true,Capital Stock + Retained Earnings at year end

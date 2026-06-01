@@ -1,0 +1,25 @@
+type,label,account_type,statement,section
+classify,Sales Revenue,Revenue,Income Statement,
+classify,Accounts Receivable,Asset,Balance Sheet,Current Assets
+classify,Cash,Asset,Balance Sheet,Current Assets
+classify,Accounts Payable,Liability,Balance Sheet,Current Liabilities
+classify,Cost of Goods Sold,Expense,Income Statement,
+classify,Loss on Sale of Land,Gain/Loss,Income Statement,
+classify,Capital Stock,Owners Equity,Balance Sheet,Owners Equity
+classify,Rent Revenue,Revenue,Income Statement,
+classify,Inventory,Asset,Balance Sheet,Current Assets
+classify,Retained Earnings,Owners Equity,Balance Sheet,Owners Equity
+classify,Bond Payable,Liability,Balance Sheet,Long-term Liabilities
+classify,Rent Expense,Expense,Income Statement,
+classify,Depreciation Expense,Expense,Income Statement,
+classify,Notes Payable,Liability,Balance Sheet,Current Liabilities
+classify,Wage Expense,Expense,Income Statement,
+classify,Gain on Sale of PPE,Gain/Loss,Income Statement,
+classify,Land,Asset,Balance Sheet,Long-term Assets
+classify,Building,Asset,Balance Sheet,Long-term Assets
+classify,Interest Expense,Expense,Income Statement,
+classify,Bad Debt Expense,Expense,Income Statement,
+classify,Equipment,Asset,Balance Sheet,Long-term Assets
+classify,Administrative Expense,Expense,Income Statement,
+classify,Utilities Expense,Expense,Income Statement,
+classify,Income Tax Expense,Expense,Income Statement,

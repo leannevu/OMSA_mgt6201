@@ -1,0 +1,42 @@
+exercise_id,exercise_type,label,value,is_blank,hint,order
+is1,income_statement,Sales Revenue,2200,false,Top-line revenue,1
+is1,income_statement,Cost of Goods Sold,900,false,Direct cost of products sold,2
+is1,income_statement,Gross Profit,1300,true,Revenue minus COGS,3
+is1,income_statement,Wage Expense,400,false,Operating expense,4
+is1,income_statement,Utilities Expense,100,false,Operating expense,5
+is1,income_statement,Depreciation Expense,225,false,Non-cash operating expense,6
+is1,income_statement,Bad Debt Expense,50,false,Operating expense,7
+is1,income_statement,Other Expenses,100,false,Operating expense,8
+is1,income_statement,Operating Income,425,true,Gross Profit minus all operating expenses,9
+is1,income_statement,Interest Expense,320,false,Non-operating expense,10
+is1,income_statement,Loss on Sale,10,false,Non-operating loss,11
+is1,income_statement,Income Before Taxes,95,true,Operating Income minus non-operating items,12
+is1,income_statement,Income Tax Expense,50,false,Tax owed,13
+is1,income_statement,Net Income,45,true,Income Before Taxes minus tax expense,14
+is2,income_statement,Sales Revenue,700,false,Top-line revenue,1
+is2,income_statement,Cost of Goods Sold,400,false,Direct cost of products sold,2
+is2,income_statement,Gross Profit,300,true,Revenue minus COGS,3
+is2,income_statement,Administrative Expense,75,false,Operating expense,4
+is2,income_statement,Utilities Expense,50,false,Operating expense,5
+is2,income_statement,Rent Expense,100,false,Operating expense,6
+is2,income_statement,Operating Income,75,true,Gross Profit minus operating expenses,7
+is2,income_statement,Loss on Sale of Land,10,false,Non-operating loss,8
+is2,income_statement,Income Before Taxes,65,true,Operating Income minus non-operating items,9
+is2,income_statement,Income Tax Expense,15,false,Tax owed,10
+is2,income_statement,Net Income,50,true,Income Before Taxes minus tax,11
+cf1,cashflow,Net Income,100,false,Starting point for indirect method,1
+cf1,cashflow,Change in A/R,20,false,Decrease in A/R = source of cash,2
+cf1,cashflow,Change in Inventory,-17,false,Increase in inventory = use of cash,3
+cf1,cashflow,Change in Interest Receivable,3,false,Decrease in receivable = source,4
+cf1,cashflow,Change in A/P,9,false,Increase in A/P = source of cash,5
+cf1,cashflow,Add Depreciation,34,false,Non-cash charge — add back,6
+cf1,cashflow,Subtract Gain,-12,false,Gain already in NI but not operating cash,7
+cf1,cashflow,Cash from Operations,137,true,Sum of all operating adjustments,8
+cf1,cashflow,Cash paid for PPE,-190,false,Investing outflow,9
+cf1,cashflow,Cash received from sale of PPE,50,false,Investing inflow,10
+cf1,cashflow,Cash from Investing,-140,true,Net investing cash flows,11
+cf1,cashflow,Issued Stock,120,false,Financing inflow,12
+cf1,cashflow,Retired Debt,-80,false,Financing outflow,13
+cf1,cashflow,Paid Dividends,-20,false,Financing outflow,14
+cf1,cashflow,Cash from Financing,20,true,Net financing cash flows,15
+cf1,cashflow,Change in Cash,17,true,Sum of all three sections,16

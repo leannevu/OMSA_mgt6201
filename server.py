@@ -8,7 +8,14 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC_ROOT = ROOT / "public"
 ACCOUNTING_QUIZ_CSV = ROOT / "data" / "accounting_quiz.csv"
 ACCOUNTING_MAP_CSV = ROOT / "data" / "accounting_map.csv"
-HOST = os.environ.get("HOST", "0.0.0.0")
+PRACTICE_DATA_ROOT = ROOT / "data" / "practice"
+PRACTICE_CSVS = {
+    "/api/practice/account-classification": PRACTICE_DATA_ROOT / "account_classification.csv",
+    "/api/practice/balance-sheet": PRACTICE_DATA_ROOT / "balance_sheet_builder.csv",
+    "/api/practice/statements": PRACTICE_DATA_ROOT / "statement_completion.csv",
+    "/api/practice/retained-earnings": PRACTICE_DATA_ROOT / "retained_earnings.csv",
+}
+HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8001"))
 
 
@@ -24,6 +31,10 @@ class KnowledgeTreeHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/accounting-map-csv":
             self.serve_csv(ACCOUNTING_MAP_CSV, "Accounting map CSV not found")
+            return
+
+        if parsed.path in PRACTICE_CSVS:
+            self.serve_csv(PRACTICE_CSVS[parsed.path], "Practice CSV not found")
             return
 
         super().do_GET()
