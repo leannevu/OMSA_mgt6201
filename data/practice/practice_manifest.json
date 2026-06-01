@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "id": "week01_foundations",
+      "label": "Week 1: Foundations",
+      "files": [
+        { "key": "classify", "path": "week01_foundations/account_classification.csv" },
+        { "key": "balanceSheet", "path": "week01_foundations/balance_sheet_builder.csv" },
+        { "key": "statements", "path": "week01_foundations/statement_completion.csv" },
+        { "key": "retainedEarnings", "path": "week01_foundations/retained_earnings.csv" },
+        { "key": "fsReaderBalanceSheet", "path": "week01_foundations/fs_reader_balance_sheet.csv" },
+        { "key": "fsReaderIncomeStatement", "path": "week01_foundations/fs_reader_income_statement.csv" },
+        { "key": "fsReaderQuestions", "path": "week01_foundations/fs_reader_questions.csv" },
+        { "key": "matchingScenarios", "path": "week01_foundations/matching_principle_scenarios.csv" },
+        { "key": "ratioCalculations", "path": "week01_foundations/ratio_calculations.csv" },
+        { "key": "revenueScenarios", "path": "week01_foundations/revenue_recognition_scenarios.csv" },
+        { "key": "warrantyClassifier", "path": "week01_foundations/warranty_classifier.csv" }
+      ]
+    },
+    {
+      "id": "week02_operating_assets_debt",
+      "label": "Week 2: Operating Assets and Debt",
+      "files": [
+        { "key": "arBadDebt", "path": "week02_operating_assets_debt/ar_bad_debt.csv" },
+        { "key": "bondAmortization", "path": "week02_operating_assets_debt/bond_amortization.csv" },
+        { "key": "cashClassification", "path": "week02_operating_assets_debt/cash_classification.csv" },
+        { "key": "depreciation", "path": "week02_operating_assets_debt/depreciation_calculations.csv" },
+        { "key": "inventoryAnswers", "path": "week02_operating_assets_debt/inventory_answers.csv" },
+        { "key": "inventoryLayers", "path": "week02_operating_assets_debt/inventory_layers.csv" },
+        { "key": "ppeCapitalization", "path": "week02_operating_assets_debt/ppe_capitalization.csv" },
+        { "key": "revenueCalculations", "path": "week02_operating_assets_debt/revenue_recognition_calculations.csv" },
+        { "key": "revenueSteps", "path": "week02_operating_assets_debt/revenue_recognition_steps.csv" }
+      ]
+    },
+    {
+      "id": "week03_statement_analysis",
+      "label": "Week 3: Statement Analysis",
+      "files": [
+        { "key": "week3CommonSize", "path": "week03_statement_analysis/common_size_statement.csv" },
+        { "key": "week3CostcoFigures", "path": "week03_statement_analysis/costco_key_figures.csv" },
+        { "key": "week3Dupont", "path": "week03_statement_analysis/dupont_exercises.csv" },
+        { "key": "week3RatioInterpretation", "path": "week03_statement_analysis/ratio_interpretation.csv" },
+        { "key": "week3RatioTable", "path": "week03_statement_analysis/ratio_table.csv" },
+        { "key": "week3Trend", "path": "week03_statement_analysis/trend_statement.csv" },
+        { "key": "week3WalmartFigures", "path": "week03_statement_analysis/walmart_key_figures.csv" }
+      ]
+    }
+  ]
+}

@@ -35,22 +35,10 @@
         }
 
         #sidebar-header .file-icon {
-            width: 16px;
-            height: 16px;
-            background: #6c757d;
-            border-radius: 3px;
-            position: relative;
-        }
-
-        #sidebar-header .file-icon::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 5px;
-            height: 5px;
-            background: #ffffff;
-            border-bottom-left-radius: 3px;
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+            flex: 0 0 auto;
         }
 
         #sidebar-header .file-name {

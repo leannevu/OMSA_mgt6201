@@ -1403,35 +1403,8 @@ if (!window.d3) {
         }
 
         async function loadPracticeData() {
-            const sources = {
-                classify: '/api/practice/account-classification',
-                balanceSheet: '/api/practice/balance-sheet',
-                statements: '/api/practice/statements',
-                retainedEarnings: '/api/practice/retained-earnings',
-                arBadDebt: '/api/practice/week2/ar-bad-debt',
-                bondAmortization: '/api/practice/week2/bond-amortization',
-                cashClassification: '/api/practice/week2/cash-classification',
-                depreciation: '/api/practice/week2/depreciation',
-                inventoryAnswers: '/api/practice/week2/inventory-answers',
-                inventoryLayers: '/api/practice/week2/inventory-layers',
-                ppeCapitalization: '/api/practice/week2/ppe-capitalization',
-                revenueCalculations: '/api/practice/week2/revenue-calculations',
-                revenueSteps: '/api/practice/week2/revenue-steps',
-                fsReaderBalanceSheet: '/api/practice/week1/fs-reader-balance-sheet',
-                fsReaderIncomeStatement: '/api/practice/week1/fs-reader-income-statement',
-                fsReaderQuestions: '/api/practice/week1/fs-reader-questions',
-                matchingScenarios: '/api/practice/week1/matching-scenarios',
-                ratioCalculations: '/api/practice/week1/ratio-calculations',
-                revenueScenarios: '/api/practice/week1/revenue-scenarios',
-                warrantyClassifier: '/api/practice/week1/warranty-classifier',
-                week3CommonSize: '/api/practice/week3/common-size',
-                week3CostcoFigures: '/api/practice/week3/costco-key-figures',
-                week3Dupont: '/api/practice/week3/dupont',
-                week3RatioInterpretation: '/api/practice/week3/ratio-interpretation',
-                week3RatioTable: '/api/practice/week3/ratio-table',
-                week3Trend: '/api/practice/week3/trend',
-                week3WalmartFigures: '/api/practice/week3/walmart-key-figures'
-            };
+            const manifest = await loadPracticeManifest();
+            const sources = getPracticeManifestSources(manifest);
 
             const results = await Promise.allSettled(Object.entries(sources).map(async ([key, endpoint]) => {
                 const response = await fetch(endpoint, { cache: 'no-store' });
@@ -1457,10 +1430,36 @@ if (!window.d3) {
             }
 
             if (failed.length > 0) {
-                showNotice(`Some optional Week 2 practice data did not load: ${failed.join('; ')}`, true);
+                showNotice(`Some optional practice data did not load: ${failed.join('; ')}`, true);
             }
 
             return data;
+        }
+
+        async function loadPracticeManifest() {
+            const response = await fetch('/api/practice-manifest', { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error(`/api/practice-manifest returned ${response.status}`);
+            }
+            return response.json();
+        }
+
+        function getPracticeManifestSources(manifest) {
+            const sources = {};
+            (manifest.modules || []).forEach(module => {
+                (module.files || []).forEach(file => {
+                    if (!file.key || !file.path) return;
+                    sources[file.key] = `/api/practice-data/${encodePracticeDataPath(file.path)}`;
+                });
+            });
+            return sources;
+        }
+
+        function encodePracticeDataPath(path) {
+            return String(path)
+                .split('/')
+                .map(part => encodeURIComponent(part))
+                .join('/');
         }
 
         function rowsToObjects(rows) {
