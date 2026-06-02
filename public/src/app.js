@@ -17,8 +17,8 @@ if (!window.d3) {
         let activeQuizQuestions = [];
         let quizIndex = 0;
         let selectedOptionIndex = null;
-        let activeTopicFilter = 'All';
-        let activeCategoryFilter = 'All';
+        let selectedQuizTopics = [];
+        let selectedQuizCategories = [];
         let accountingQuizCsvText = '';
         let accountingMapCsvText = '';
         let accountingQuizSourceName = 'accounting_quiz.csv';
@@ -26,16 +26,19 @@ if (!window.d3) {
         let currentView = 'quiz';
         let quizAnswers = [];
         let quizFinished = false;
+        let quizStarted = false;
         let freezeQuizTabs = false;
         let practiceLoaded = false;
         let practiceExercises = [];
         let activePracticeExercises = [];
         let practiceIndex = 0;
-        let activePracticeTopic = 'All';
+        let selectedPracticeTopics = [];
         let practiceScoreCorrect = 0;
         let practiceScoreTotal = 0;
         let practiceDraggedEl = null;
         let practiceFinished = false;
+        let practiceStarted = false;
+        let sidebarCollapsed = false;
 
         function showNotice(message, isError = false) {
             const notice = document.getElementById('notice');
@@ -231,11 +234,12 @@ if (!window.d3) {
             document.body.classList.remove('practice-mode');
             document.querySelector('.file-name').textContent = sourceName;
             setViewButtons();
-            activeTopicFilter = 'All';
-            activeCategoryFilter = 'All';
+            selectedQuizTopics = [];
+            selectedQuizCategories = [];
             quizIndex = 0;
             selectedOptionIndex = null;
             quizFinished = false;
+            quizStarted = false;
             freezeQuizTabs = false;
             setViewButtons();
             applyQuizFilters();
@@ -420,16 +424,17 @@ if (!window.d3) {
         }
 
         function applyQuizFilters() {
+            pruneSelectedQuizCategories();
             activeQuizQuestions = quizQuestions.filter(question => {
-                const topicMatch = activeTopicFilter === 'All' || question.topic === activeTopicFilter;
-                const categoryMatch = activeCategoryFilter === 'All' || question.category === activeCategoryFilter;
+                const topicMatch = selectedQuizTopics.length === 0 || selectedQuizTopics.includes(question.topic);
+                const categoryMatch = selectedQuizCategories.length === 0 || selectedQuizCategories.includes(question.category);
                 return topicMatch && categoryMatch;
             });
 
             if (activeQuizQuestions.length === 0) {
                 activeQuizQuestions = quizQuestions;
-                activeTopicFilter = 'All';
-                activeCategoryFilter = 'All';
+                selectedQuizTopics = [];
+                selectedQuizCategories = [];
             }
 
             quizIndex = Math.min(quizIndex, Math.max(0, activeQuizQuestions.length - 1));
@@ -443,10 +448,10 @@ if (!window.d3) {
         function renderQuizSidebar() {
             const sidebarContent = document.getElementById('sidebar-content');
             const topics = ['All', ...Array.from(new Set(quizQuestions.map(question => question.topic))).sort()];
+            const topicScopedQuestions = quizQuestions
+                .filter(question => selectedQuizTopics.length === 0 || selectedQuizTopics.includes(question.topic));
             const categories = ['All', ...Array.from(new Set(
-                quizQuestions
-                    .filter(question => activeTopicFilter === 'All' || question.topic === activeTopicFilter)
-                    .map(question => question.category)
+                topicScopedQuestions.map(question => question.category)
             )).sort()];
 
             sidebarContent.innerHTML = `
@@ -457,21 +462,24 @@ if (!window.d3) {
                             <span>Freeze tabs</span>
                         </label>
                         <div class="quiz-tool-row">
+                            <button id="start-quiz-button" class="quiz-tool-button" type="button" ${quizStarted ? 'disabled' : ''}>Start</button>
                             <button id="reset-quiz-button" class="quiz-tool-button" type="button">Reset quiz</button>
+                        </div>
+                        <div class="quiz-tool-row">
                             <button id="shuffle-quiz-button" class="quiz-tool-button" type="button">Shuffle</button>
+                            <button id="pick-topics-button" class="quiz-tool-button" type="button">Pick topics</button>
                         </div>
                         <div class="quiz-tool-row">
                             <button id="clear-topics-button" class="quiz-tool-button" type="button">Clear topics</button>
-                            <button id="pick-topics-button" class="quiz-tool-button" type="button">Pick topics</button>
                         </div>
                     </div>
                     <div class="quiz-nav-section">
                         <div class="quiz-nav-label">Topics</div>
-                        ${topics.map(topic => buildFilterButton('topic', topic, activeTopicFilter === topic)).join('')}
+                        ${topics.map(topic => buildFilterButton('topic', topic, topic === 'All' ? selectedQuizTopics.length === 0 : selectedQuizTopics.includes(topic))).join('')}
                     </div>
                     <div class="quiz-nav-section">
                         <div class="quiz-nav-label">Categories</div>
-                        ${categories.map(category => buildFilterButton('category', category, activeCategoryFilter === category)).join('')}
+                        ${categories.map(category => buildFilterButton('category', category, category === 'All' ? selectedQuizCategories.length === 0 : selectedQuizCategories.includes(category))).join('')}
                     </div>
                 </div>
             `;
@@ -482,6 +490,7 @@ if (!window.d3) {
                 renderQuizSidebar();
                 showNotice(freezeQuizTabs ? 'Tabs and topic filters are frozen.' : 'Tabs and topic filters are unlocked.');
             });
+            document.getElementById('start-quiz-button').addEventListener('click', startQuizSession);
             document.getElementById('reset-quiz-button').addEventListener('click', resetQuizSession);
             document.getElementById('shuffle-quiz-button').addEventListener('click', shuffleQuizCards);
             document.getElementById('clear-topics-button').addEventListener('click', clearQuizTopics);
@@ -489,18 +498,30 @@ if (!window.d3) {
 
             sidebarContent.querySelectorAll('.quiz-filter').forEach(button => {
                 button.addEventListener('click', event => {
-                    if (freezeQuizTabs) {
-                        showNotice('Topic filters are frozen. Use Pick topics or turn off Freeze tabs first.');
+                    if (quizStarted || freezeQuizTabs) {
+                        showNotice(quizStarted ? 'This quiz has started. Use Pick topics or Clear topics to change the list.' : 'Topic filters are frozen. Use Pick topics or turn off Freeze tabs first.');
                         return;
                     }
 
                     const type = event.currentTarget.dataset.type;
                     const value = event.currentTarget.dataset.value;
                     if (type === 'topic') {
-                        activeTopicFilter = value;
-                        activeCategoryFilter = 'All';
+                        if (value === 'All') {
+                            selectedQuizTopics = [];
+                            selectedQuizCategories = [];
+                        } else if (selectedQuizTopics.includes(value)) {
+                            selectedQuizTopics = selectedQuizTopics.filter(topic => topic !== value);
+                        } else {
+                            selectedQuizTopics = [...selectedQuizTopics, value];
+                        }
                     } else {
-                        activeCategoryFilter = value;
+                        if (value === 'All') {
+                            selectedQuizCategories = [];
+                        } else if (selectedQuizCategories.includes(value)) {
+                            selectedQuizCategories = selectedQuizCategories.filter(category => category !== value);
+                        } else {
+                            selectedQuizCategories = [...selectedQuizCategories, value];
+                        }
                     }
                     quizIndex = 0;
                     applyQuizFilters();
@@ -508,15 +529,25 @@ if (!window.d3) {
             });
         }
 
+        function pruneSelectedQuizCategories() {
+            if (selectedQuizCategories.length === 0) return;
+            const availableCategories = new Set(
+                quizQuestions
+                    .filter(question => selectedQuizTopics.length === 0 || selectedQuizTopics.includes(question.topic))
+                    .map(question => question.category)
+            );
+            selectedQuizCategories = selectedQuizCategories.filter(category => availableCategories.has(category));
+        }
+
         function buildFilterButton(type, value, isActive) {
             const count = quizQuestions.filter(question => {
                 if (type === 'topic') return value === 'All' || question.topic === value;
-                const topicMatch = activeTopicFilter === 'All' || question.topic === activeTopicFilter;
+                const topicMatch = selectedQuizTopics.length === 0 || selectedQuizTopics.includes(question.topic);
                 return (value === 'All' || question.category === value) && topicMatch;
             }).length;
 
             return `
-                <button class="quiz-filter ${isActive ? 'active' : ''}" type="button" data-type="${type}" data-value="${escapeHTML(value)}" ${freezeQuizTabs ? 'disabled' : ''}>
+                <button class="quiz-filter ${isActive ? 'active' : ''}" type="button" data-type="${type}" data-value="${escapeHTML(value)}" ${quizStarted || freezeQuizTabs ? 'disabled' : ''}>
                     <span>${escapeHTML(value)}</span>
                     <span>${count}</span>
                 </button>
@@ -531,6 +562,17 @@ if (!window.d3) {
             renderQuizSidebar();
             renderQuizQuestion();
             showNotice('Quiz reset.');
+        }
+
+        function startQuizSession() {
+            quizStarted = true;
+            quizIndex = 0;
+            selectedOptionIndex = null;
+            quizAnswers = Array(activeQuizQuestions.length).fill(null);
+            quizFinished = false;
+            renderQuizSidebar();
+            renderQuizQuestion();
+            showNotice(`Started ${activeQuizQuestions.length} quiz question${activeQuizQuestions.length === 1 ? '' : 's'}.`);
         }
 
         function shuffleQuizCards() {
@@ -559,8 +601,9 @@ if (!window.d3) {
 
         function clearQuizTopics() {
             freezeQuizTabs = false;
-            activeTopicFilter = 'All';
-            activeCategoryFilter = 'All';
+            quizStarted = false;
+            selectedQuizTopics = [];
+            selectedQuizCategories = [];
             quizIndex = 0;
             selectedOptionIndex = null;
             setViewButtons();
@@ -570,6 +613,7 @@ if (!window.d3) {
 
         function pickQuizTopics() {
             freezeQuizTabs = false;
+            quizStarted = false;
             setViewButtons();
             renderQuizSidebar();
             showNotice('Topic filters are unlocked.');
@@ -601,7 +645,7 @@ if (!window.d3) {
                     <h1 class="quiz-question">${escapeHTML(question.question)}</h1>
                     <div class="quiz-options">
                         ${question.options.map((option, idx) => `
-                            <button class="quiz-option ${getOptionClass(question, savedAnswer, idx)}" type="button" data-index="${idx}">
+                            <button class="quiz-option ${getOptionClass(question, savedAnswer, idx)}" type="button" data-index="${idx}" ${quizStarted ? '' : 'disabled'}>
                                 ${String.fromCharCode(65 + idx)}. ${escapeHTML(option)}
                             </button>
                         `).join('')}
@@ -610,9 +654,10 @@ if (!window.d3) {
                         ${savedAnswer === null ? '' : buildFeedbackHTML(question, savedAnswer === question.correctIndex)}
                     </div>
                     <div class="quiz-footer">
+                        <button id="quiz-start" class="quiz-nav-button" type="button" ${quizStarted ? 'disabled' : ''}>Start</button>
                         <button id="quiz-shuffle" class="quiz-nav-button" type="button">Shuffle</button>
                         <button id="quiz-prev" class="quiz-nav-button" type="button" ${quizIndex === 0 ? 'disabled' : ''}>Previous</button>
-                        <button id="quiz-next" class="quiz-nav-button primary" type="button">${quizIndex === activeQuizQuestions.length - 1 ? 'Finish' : 'Next'}</button>
+                        <button id="quiz-next" class="quiz-nav-button primary" type="button" ${quizStarted ? '' : 'disabled'}>${quizIndex === activeQuizQuestions.length - 1 ? 'Finish' : 'Next'}</button>
                     </div>
                 </main>
             `;
@@ -620,6 +665,7 @@ if (!window.d3) {
             container.querySelectorAll('.quiz-option').forEach(button => {
                 button.addEventListener('click', event => selectQuizOption(Number(event.currentTarget.dataset.index)));
             });
+            document.getElementById('quiz-start').addEventListener('click', startQuizSession);
             document.getElementById('quiz-shuffle').addEventListener('click', shuffleQuizCards);
             document.getElementById('quiz-prev').addEventListener('click', () => moveQuiz(-1));
             document.getElementById('quiz-next').addEventListener('click', () => moveQuiz(1));
@@ -639,6 +685,10 @@ if (!window.d3) {
         }
 
         function selectQuizOption(index) {
+            if (!quizStarted) {
+                showNotice('Click Start before answering quiz questions.');
+                return;
+            }
             selectedOptionIndex = index;
             quizAnswers[quizIndex] = index;
             const question = activeQuizQuestions[quizIndex];
@@ -656,6 +706,10 @@ if (!window.d3) {
         }
 
         function moveQuiz(direction) {
+            if (!quizStarted) {
+                showNotice('Click Start before moving through the quiz.');
+                return;
+            }
             if (direction > 0 && quizIndex >= activeQuizQuestions.length - 1) {
                 quizFinished = true;
                 renderQuizScore();
@@ -1384,7 +1438,7 @@ if (!window.d3) {
                 try {
                     const data = await loadPracticeData();
                     practiceExercises = buildPracticeExercises(data);
-                    activePracticeExercises = [...practiceExercises];
+                    applyPracticeTopicSelection(false);
                     practiceLoaded = true;
                 } catch (error) {
                     showNotice(`Could not load practice data. ${error.message}`, true);
@@ -1834,53 +1888,132 @@ if (!window.d3) {
                 return acc;
             }, {});
             const topics = ['All', ...Object.keys(counts)];
+            const isAllSelected = selectedPracticeTopics.length === 0;
+            const practiceLocked = practiceStarted || practiceFinished;
 
             sidebarContent.innerHTML = `
                 <div class="practice-nav">
                     <div class="practice-tools">
-                        <button id="practice-reset" class="practice-tool-button" type="button">${practiceFinished ? 'Restart' : 'Reset'}</button>
-                        <button id="practice-hint" class="practice-tool-button" type="button">Hint</button>
-                        <button id="practice-check" class="practice-tool-button" type="button" ${practiceFinished ? 'disabled' : ''}>Check</button>
-                        <button id="practice-next-side" class="practice-tool-button" type="button" ${practiceFinished ? 'disabled' : ''}>Next &rarr;</button>
+                        <div class="quiz-tool-row">
+                            <button id="practice-start" class="practice-tool-button" type="button" ${practiceStarted ? 'disabled' : ''}>Start</button>
+                            <button id="practice-reset" class="practice-tool-button" type="button">Reset</button>
+                        </div>
+                        <div class="quiz-tool-row">
+                            <button id="practice-hint" class="practice-tool-button" type="button">Hint</button>
+                            <button id="practice-pick-types" class="practice-tool-button" type="button">Pick types</button>
+                        </div>
+                        <div class="quiz-tool-row full">
+                            <button id="practice-clear-types" class="practice-tool-button" type="button">Clear types</button>
+                        </div>
                     </div>
-                    <div class="practice-topic-label">Exercise Type</div>
+                    <div class="practice-topic-label">Exercise Types</div>
                     ${topics.map(topic => {
                         const count = topic === 'All' ? practiceExercises.length : counts[topic];
+                        const active = topic === 'All' ? isAllSelected : selectedPracticeTopics.includes(topic);
                         return `
-                            <button class="practice-topic ${activePracticeTopic === topic ? 'active' : ''}" type="button" data-topic="${escapeHTML(topic)}">
+                            <button class="practice-topic ${active ? 'active' : ''}" type="button" data-topic="${escapeHTML(topic)}" aria-pressed="${active ? 'true' : 'false'}" ${practiceLocked ? 'disabled' : ''}>
                                 <span>${escapeHTML(topic)}</span>
                                 <span>${count}</span>
                             </button>
                         `;
                     }).join('')}
+                    <div class="practice-selection-summary">${activePracticeExercises.length} exercise${activePracticeExercises.length === 1 ? '' : 's'} selected</div>
                 </div>
             `;
 
-            document.getElementById('practice-reset').addEventListener('click', practiceFinished ? restartPractice : resetPracticeExercise);
+            document.getElementById('practice-start').addEventListener('click', startPracticeSession);
+            document.getElementById('practice-reset').addEventListener('click', resetPracticeSession);
             document.getElementById('practice-hint').addEventListener('click', showPracticeHint);
-            document.getElementById('practice-check').addEventListener('click', checkPracticeAnswers);
-            document.getElementById('practice-next-side').addEventListener('click', nextPracticeExercise);
+            document.getElementById('practice-pick-types').addEventListener('click', pickPracticeTypes);
+            document.getElementById('practice-clear-types').addEventListener('click', clearPracticeTypes);
             sidebarContent.querySelectorAll('.practice-topic').forEach(button => {
                 button.addEventListener('click', event => {
-                    activePracticeTopic = event.currentTarget.dataset.topic;
-                    activePracticeExercises = activePracticeTopic === 'All'
-                        ? [...practiceExercises]
-                        : practiceExercises.filter(exercise => exercise.topic === activePracticeTopic);
-                    practiceIndex = 0;
-                    practiceFinished = false;
+                    if (practiceLocked) {
+                        showNotice('Practice has started. Restart to change exercise types.');
+                        return;
+                    }
+                    const topic = event.currentTarget.dataset.topic;
+                    if (topic === 'All') {
+                        selectedPracticeTopics = [];
+                    } else if (selectedPracticeTopics.includes(topic)) {
+                        selectedPracticeTopics = selectedPracticeTopics.filter(item => item !== topic);
+                    } else {
+                        selectedPracticeTopics = [...selectedPracticeTopics, topic];
+                    }
+                    applyPracticeTopicSelection(true);
                     renderPracticeSidebar();
                     renderPracticeExercise();
                 });
             });
         }
 
+        function applyPracticeTopicSelection(resetSession = true) {
+            activePracticeExercises = selectedPracticeTopics.length === 0
+                ? [...practiceExercises]
+                : practiceExercises.filter(exercise => selectedPracticeTopics.includes(exercise.topic));
+
+            if (activePracticeExercises.length === 0) {
+                selectedPracticeTopics = [];
+                activePracticeExercises = [...practiceExercises];
+            }
+
+            practiceIndex = 0;
+            practiceFinished = false;
+            practiceStarted = false;
+            if (resetSession) {
+                practiceExercises.forEach(clearPracticeExerciseState);
+            }
+            updatePracticeScore();
+        }
+
+        function startPracticeSession() {
+            practiceStarted = true;
+            practiceIndex = 0;
+            practiceFinished = false;
+            activePracticeExercises.forEach(clearPracticeExerciseState);
+            updatePracticeScore();
+            renderPracticeSidebar();
+            renderPracticeExercise();
+            showNotice(`Started ${activePracticeExercises.length} practice exercise${activePracticeExercises.length === 1 ? '' : 's'}.`);
+        }
+
+        function resetPracticeSession() {
+            activePracticeExercises.forEach(clearPracticeExerciseState);
+            practiceIndex = 0;
+            practiceFinished = false;
+            updatePracticeScore();
+            renderPracticeSidebar();
+            renderPracticeExercise();
+            showNotice('Practice reset.');
+        }
+
+        function pickPracticeTypes() {
+            practiceStarted = false;
+            practiceFinished = false;
+            renderPracticeSidebar();
+            renderPracticeExercise();
+            showNotice('Exercise types are unlocked.');
+        }
+
+        function clearPracticeTypes() {
+            selectedPracticeTopics = [];
+            applyPracticeTopicSelection(true);
+            renderPracticeSidebar();
+            renderPracticeExercise();
+            showNotice('Exercise types cleared.');
+        }
+
         function renderPracticeExercise() {
             const exercise = activePracticeExercises[practiceIndex];
             if (!exercise) return;
+            if (practiceFinished) {
+                renderPracticeScore();
+                return;
+            }
 
             const buttonLabel = practiceIndex >= activePracticeExercises.length - 1 ? 'Finish' : 'Next';
             const checked = !!exercise._checked;
-            const locked = practiceFinished || checked;
+            const locked = !practiceStarted || practiceFinished || checked;
 
             container.innerHTML = `
                 <div class="practice-shell">
@@ -1905,8 +2038,7 @@ if (!window.d3) {
                         <div class="practice-score">Score: <strong id="practice-score-correct">${practiceScoreCorrect}</strong> / <span id="practice-score-total">${practiceScoreTotal}</span></div>
                         <div class="practice-footer-group">
                             <button id="practice-footer-check" class="practice-button" type="button" ${locked ? 'disabled' : ''}>Check</button>
-                            <button id="practice-next" class="practice-button primary" type="button" ${practiceFinished ? 'disabled' : ''}>${buttonLabel}</button>
-                            ${practiceFinished ? '<button id="practice-restart-inline" class="practice-button primary" type="button">Restart</button>' : ''}
+                            <button id="practice-next" class="practice-button primary" type="button" ${!practiceStarted || practiceFinished ? 'disabled' : ''}>${buttonLabel}</button>
                         </div>
                     </div>
                 </div>
@@ -2527,6 +2659,10 @@ if (!window.d3) {
 
         function checkPracticeAnswers() {
             const exercise = activePracticeExercises[practiceIndex];
+            if (!practiceStarted) {
+                showNotice('Click Start before checking practice answers.');
+                return;
+            }
             persistPracticeResponses(exercise);
 
             if (!exercise._checked) {
@@ -2536,7 +2672,6 @@ if (!window.d3) {
                 exercise._scoreTotal = result.total;
             }
 
-            finalizePracticeSet();
             updatePracticeScore();
             renderPracticeSidebar();
             renderPracticeExercise();
@@ -2634,7 +2769,7 @@ if (!window.d3) {
             const correct = exercise._scoreCorrect || 0;
             const total = exercise._scoreTotal || 0;
             feedback.className = `practice-feedback show ${correct === total ? 'correct' : 'info'}`;
-            feedback.textContent = `${correct} of ${total} correct.${practiceFinished ? ' Practice is finished; unattempted exercises are counted in the total score.' : ''}${correct === total ? ' Great job!' : ' Green marks the correct answer; red marks a wrong selection.'}`;
+            feedback.textContent = `${correct} of ${total} correct.${correct === total ? ' Great job!' : ' Green marks the correct answer; red marks a wrong selection.'}`;
         }
 
         function updatePracticeScore() {
@@ -2771,6 +2906,10 @@ if (!window.d3) {
         }
 
         function nextPracticeExercise() {
+            if (!practiceStarted) {
+                showNotice('Click Start before moving through practice.');
+                return;
+            }
             if (practiceFinished) return;
 
             const exercise = activePracticeExercises[practiceIndex];
@@ -2790,7 +2929,7 @@ if (!window.d3) {
                 finalizePracticeSet();
                 updatePracticeScore();
                 renderPracticeSidebar();
-                renderPracticeExercise();
+                renderPracticeScore();
             }
         }
 
@@ -2820,11 +2959,12 @@ if (!window.d3) {
         }
 
         function restartPractice() {
-            activePracticeExercises.forEach(exercise => {
+            practiceExercises.forEach(exercise => {
                 clearPracticeExerciseState(exercise);
             });
             practiceIndex = 0;
             practiceFinished = false;
+            practiceStarted = false;
             updatePracticeScore();
             renderPracticeSidebar();
             renderPracticeExercise();
@@ -2860,8 +3000,40 @@ if (!window.d3) {
             centerOnRoots();
         }
 
+        function setSidebarCollapsed(collapsed) {
+            sidebarCollapsed = collapsed;
+            document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+
+            const toggle = document.getElementById('sidebar-toggle');
+            if (toggle) {
+                toggle.textContent = sidebarCollapsed ? 'Show' : 'Hide';
+                toggle.setAttribute('aria-expanded', sidebarCollapsed ? 'false' : 'true');
+            }
+
+            setTimeout(refreshCurrentViewLayout, 260);
+        }
+
+        function refreshCurrentViewLayout() {
+            if (currentView === 'practice') {
+                renderPracticeExercise();
+                return;
+            }
+            if (currentView === 'quiz') {
+                renderQuizQuestion();
+                return;
+            }
+            if (!svg) {
+                initializeTreeCanvas();
+            }
+            svg.attr('width', treePanel.clientWidth).attr('height', treePanel.clientHeight);
+            updateRootPositions();
+            render();
+            setTimeout(centerOnRoots, 50);
+        }
+
         function bindControls() {
             document.getElementById('accounting-button').addEventListener('click', switchToQuiz);
+            document.getElementById('sidebar-toggle').addEventListener('click', () => setSidebarCollapsed(!sidebarCollapsed));
             document.querySelector('.view-tabs').addEventListener('click', event => {
                 const tab = event.target.closest('.view-tab');
                 if (!tab) return;

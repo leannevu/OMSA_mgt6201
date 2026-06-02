@@ -8,7 +8,7 @@
     <link rel="apple-touch-icon" href="assets/GTLogo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="src/styles.css?v=20260601-practice">
+    <link rel="stylesheet" href="src/styles.css?v=20260602-practice-sidebar">
 </head>
 <body>
     <!-- LEFT SIDEBAR -->
@@ -16,6 +16,7 @@
         <div id="sidebar-header">
             <img class="file-icon" src="assets/GTLogo.png" alt="Georgia Tech">
             <span class="file-name">Loading accounting data...</span>
+            <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-controls="sidebar-content" aria-expanded="true">Hide</button>
             <div class="view-tabs" aria-label="Accounting views">
                 <button id="quiz-view-button" class="view-tab active" type="button">Quiz</button>
                 <button id="mindmap-view-button" class="view-tab" type="button">Mindmap</button>
@@ -41,7 +42,7 @@
 
     <div id="notice" class="notice" role="status" aria-live="polite"></div>
 
-    <script src="src/app.js?v=20260601-practice"></script>
+    <script src="src/app.js?v=20260602-practice-sidebar"></script>
 </body>
 </html>
 
