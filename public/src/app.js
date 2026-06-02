@@ -69,6 +69,14 @@ if (!window.d3) {
             }[char]));
         }
 
+        function cssEscape(value) {
+            if (window.CSS && typeof window.CSS.escape === 'function') {
+                return window.CSS.escape(String(value || ''));
+            }
+
+            return String(value || '').replace(/[^a-zA-Z0-9_-]/g, char => `\\${char}`);
+        }
+
         function getActiveRoots() {
             return focusedNode ? [focusedNode] : forestRoots;
         }
@@ -1977,6 +1985,17 @@ if (!window.d3) {
             showNotice(`Started ${activePracticeExercises.length} practice exercise${activePracticeExercises.length === 1 ? '' : 's'}.`);
         }
 
+        function startPracticeFromInteraction() {
+            if (practiceStarted || practiceFinished) return;
+            practiceStarted = true;
+            renderPracticeSidebar();
+
+            const checkButton = document.getElementById('practice-footer-check');
+            const nextButton = document.getElementById('practice-next');
+            if (checkButton) checkButton.disabled = false;
+            if (nextButton) nextButton.disabled = false;
+        }
+
         function resetPracticeSession() {
             activePracticeExercises.forEach(clearPracticeExerciseState);
             practiceIndex = 0;
@@ -2084,6 +2103,8 @@ if (!window.d3) {
             if (exercise.type === 'ratio_table') renderPracticeRatioTable(body, exercise);
             if (exercise.type === 'common_size') renderPracticeCommonSize(body, exercise);
             if (exercise.type === 'trend_stmt') renderPracticeTrendStatement(body, exercise);
+            body.addEventListener('input', startPracticeFromInteraction);
+            body.addEventListener('change', startPracticeFromInteraction);
             restorePracticeResponses(exercise);
             if (checked) {
                 markPracticeAnswers(exercise);
@@ -2116,6 +2137,7 @@ if (!window.d3) {
 
             grid.querySelectorAll('.practice-option').forEach(button => {
                 button.addEventListener('click', event => {
+                    startPracticeFromInteraction();
                     const row = exercise.rows[Number(event.currentTarget.dataset.row)];
                     row._selected = event.currentTarget.dataset.value;
                     event.currentTarget.closest('.practice-options').querySelectorAll('.practice-option').forEach(item => item.classList.remove('selected'));
@@ -2146,6 +2168,7 @@ if (!window.d3) {
                 chip.dataset.correctLabel = correctLabel;
                 chip.textContent = row.item_label ? `${row.item_label}${row.amount ? ` $${row.amount}` : ''}` : row.label;
                 chip.addEventListener('dragstart', () => {
+                    startPracticeFromInteraction();
                     practiceDraggedEl = chip;
                     chip.classList.add('dragging');
                 });
@@ -2179,6 +2202,7 @@ if (!window.d3) {
                 event.preventDefault();
                 zone.classList.remove('drag-over');
                 if (practiceDraggedEl) {
+                    startPracticeFromInteraction();
                     zone.appendChild(practiceDraggedEl);
                     practiceDraggedEl = null;
                 }
@@ -2275,6 +2299,7 @@ if (!window.d3) {
                 item.dataset.correctLabel = `Step ${step.order}`;
                 item.textContent = step.label;
                 item.addEventListener('dragstart', () => {
+                    startPracticeFromInteraction();
                     practiceDraggedEl = item;
                     item.classList.add('dragging');
                 });
@@ -2312,6 +2337,7 @@ if (!window.d3) {
                 if (!practiceDraggedEl) return;
                 const existing = zone.querySelector('.practice-chip');
                 if (existing) pool.appendChild(existing);
+                startPracticeFromInteraction();
                 zone.appendChild(practiceDraggedEl);
                 practiceDraggedEl = null;
             });
@@ -2432,6 +2458,7 @@ if (!window.d3) {
 
             body.querySelectorAll('.practice-option').forEach(button => {
                 button.addEventListener('click', event => {
+                    startPracticeFromInteraction();
                     const row = exercise.rows[Number(event.currentTarget.dataset.row)];
                     row._selected = Number(event.currentTarget.dataset.value);
                     event.currentTarget.closest('.practice-options').querySelectorAll('.practice-option').forEach(item => item.classList.remove('selected'));
