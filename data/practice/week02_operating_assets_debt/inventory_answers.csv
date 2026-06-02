@@ -3,7 +3,7 @@ inv1,Summary,Total Units Available,18000,3000+6000+4000+5000
 inv1,Summary,Total Cost of Goods Available,65000,6000+18000+16000+25000
 inv1,Summary,Units Sold,8000,Given
 inv1,Summary,Units Remaining in Ending Inventory,10000,18000 - 8000
-inv1,FIFO,COGS under FIFO,22000,3000 x $2 + 5000 x $3 (oldest units sold first)
-inv1,FIFO,Ending Inventory under FIFO,43000,1000 x $3 + 4000 x $4 + 5000 x $5 (newest units remain)
-inv1,LIFO,COGS under LIFO,33000,5000 x $5 + 3000 x $4 (newest units sold first)
-inv1,LIFO,Ending Inventory under LIFO,32000,3000 x $2 + 6000 x $3 + 1000 x $4 (oldest units remain)
+inv1,FIFO,COGS under FIFO,21000,3000 x $2 + 5000 x $3 (oldest units sold first)
+inv1,FIFO,Ending Inventory under FIFO,44000,1000 x $3 + 4000 x $4 + 5000 x $5 (newest units remain)
+inv1,LIFO,COGS under LIFO,37000,5000 x $5 + 3000 x $4 (newest units sold first)
+inv1,LIFO,Ending Inventory under LIFO,28000,3000 x $2 + 6000 x $3 + 1000 x $4 (oldest units remain)
